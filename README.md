@@ -70,5 +70,6 @@ SESSION_SECRET=local-secret-change-me
 
 ## Poznámka k fakturám
 
-Aktuální verze ukládá název nahrané faktury a metadata. Pro reálné ukládání PDF
-souborů je další krok napojení na Vercel Blob nebo jiné souborové úložiště.
+Aktuální verze ukládá PDF, obrázky, TXT a CSV soubory do Vercel Blob. Po uploadu
+může uživatel spustit AI analýzu, zkontrolovat návrh a uložit záznam jako náklad
+nebo payout.
