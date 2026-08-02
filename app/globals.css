@@ -547,6 +547,12 @@ textarea {
   width: 100%;
 }
 
+.primary-button.mini,
+.ghost-button.mini {
+  padding: 0.58rem 0.78rem;
+  font-size: 0.78rem;
+}
+
 .ghost-button.full {
   width: 100%;
 }
@@ -907,6 +913,7 @@ textarea {
 .firm-grid,
 .account-grid,
 .filter-grid,
+.process-grid,
 .ranking-grid,
 .admin-grid,
 .records {
@@ -952,6 +959,57 @@ textarea {
 .firm-grid,
 .account-grid {
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.process-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.process-grid article,
+.manual-flow-card {
+  border: 1px solid rgba(46, 229, 157, 0.18);
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(135deg, rgba(46, 229, 157, 0.095), rgba(76, 141, 255, 0.045)),
+    rgba(2, 8, 23, 0.42);
+  padding: 1rem;
+}
+
+.process-grid span {
+  display: inline-flex;
+  margin-bottom: 0.65rem;
+  border-radius: 999px;
+  background: rgba(46, 229, 157, 0.16);
+  color: var(--green);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.process-grid strong,
+.manual-flow-card strong {
+  display: block;
+  color: #f8fbff;
+}
+
+.process-grid small,
+.manual-flow-card small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.manual-flow-card {
+  margin-bottom: 1rem;
+}
+
+.status-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
 }
 
 .filter-grid {
@@ -1166,6 +1224,7 @@ textarea {
   .feature-grid,
   .dashboard-header,
   .insight-strip,
+  .process-grid,
   .filter-grid,
   .ranking-grid {
     grid-template-columns: 1fr;

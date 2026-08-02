@@ -154,6 +154,16 @@ const accountStatuses: AccountStatus[] = [
   "archived",
 ];
 
+const statusLabels: Record<AccountStatus, string> = {
+  challenge: "Challenge",
+  verification: "Verification",
+  funded: "Funded",
+  failed: "Failed",
+  "payout received": "Payout received",
+  refunded: "Refunded",
+  archived: "Archived",
+};
+
 function formatCzk(value: number) {
   return new Intl.NumberFormat("cs-CZ", {
     style: "currency",
@@ -697,8 +707,10 @@ export default function Home() {
           ),
         }));
       }
-      applyDocumentAnalysis(result.analysis);
-      setMessage(result.warning ?? "AI analýza je hotová. Zkontroluj data a ulož záznam.");
+      setMessage(
+        result.warning ??
+          "AI analýza je hotová. Nic jsem nevyplnil automaticky — údaje zkontroluj a zadej ručně.",
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "AI analýza se nepodařila.");
     } finally {
@@ -719,50 +731,6 @@ export default function Home() {
       setMessage(error instanceof Error ? error.message : "Dokument se nepodařilo smazat.");
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  function applyDocumentAnalysis(analysis: DocumentAnalysis, target = analysis.recordType) {
-    const matchedAccount = data.accounts.find(
-      (account) =>
-        account.propFirm.toLowerCase() === analysis.propFirm.toLowerCase() &&
-        account.program.toLowerCase() === analysis.program.toLowerCase(),
-    );
-    const base = {
-      accountId: matchedAccount?.id ?? "",
-      propFirm: analysis.propFirm,
-      program: analysis.program,
-      amount: analysis.amount > 0 ? String(analysis.amount) : "",
-      currency: analysis.currency,
-      date: analysis.date,
-      note: analysis.explanation,
-    };
-
-    if (target === "payout") {
-      setPayoutDraft((current) => ({
-        ...current,
-        ...base,
-        split: String(analysis.split || current.split),
-      }));
-    } else {
-      setInvoiceDraft((current) => ({
-        ...current,
-        ...base,
-        note: analysis.feeType || analysis.explanation,
-      }));
-    }
-
-    if (!matchedAccount && analysis.propFirm) {
-      setAccountDraft((current) => ({
-        ...current,
-        propFirm: analysis.propFirm,
-        program: analysis.program,
-        accountSize: analysis.accountSize,
-        accountType: analysis.accountType || current.accountType,
-        market: analysis.market || current.market,
-        strategy: analysis.strategy || current.strategy,
-        status: analysis.suggestedStatus || current.status,
-      }));
     }
   }
 
@@ -819,43 +787,12 @@ export default function Home() {
     }));
   }
 
-  function applyRecognition(parsed: RecognitionResult, target?: Exclude<RecognitionKind, "unknown">) {
-    const kind = target ?? (parsed.kind === "payout" ? "payout" : "cost");
-    const note = parsed.signals.length
-      ? `Rozpoznáno: ${parsed.signals.join(" • ")}`
-      : "Rozpoznáno z dokladu.";
-
-    if (kind === "payout") {
-      setPayoutDraft((current) => ({
-        ...current,
-        propFirm: parsed.propFirm || current.propFirm,
-        program: parsed.program || current.program,
-        amount: parsed.amount || current.amount,
-        currency: parsed.currency,
-        date: parsed.date || current.date,
-        note: current.note || note,
-      }));
-    } else {
-      setInvoiceDraft((current) => ({
-        ...current,
-        propFirm: parsed.propFirm || current.propFirm,
-        program: parsed.program || current.program,
-        amount: parsed.amount || current.amount,
-        currency: parsed.currency,
-        date: parsed.date || current.date,
-        fileName: parsed.sourceName || current.fileName,
-        note: current.note || note,
-      }));
-    }
-  }
-
   function recognizeText(text: string, sourceName?: string) {
     const parsed = parseTradingDocument(text, sourceName);
     setRecognition(parsed);
-    applyRecognition(parsed);
     setMessage(
       parsed.signals.length
-        ? `Rozpoznáno ${parsed.confidence}%: ${parsed.signals.join(" • ")}. Zkontroluj a ulož.`
+        ? `Rozpoznáno ${parsed.confidence}%: ${parsed.signals.join(" • ")}. Formulář zůstává ruční.`
         : "Z dokladu se nepodařilo najít jasná data. Zkus vložit delší text z faktury nebo payout e-mailu.",
     );
   }
@@ -870,20 +807,7 @@ export default function Home() {
 
     void uploadDocument(file);
     setInvoiceDraft((current) => ({ ...current, fileName: file.name }));
-    if (file.type.includes("text") || file.name.match(/\.(txt|csv|pdf)$/i)) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        recognizeText(String(reader.result ?? ""), file.name);
-      };
-      reader.readAsText(file);
-    } else {
-      const parsed = parseTradingDocument(file.name, file.name);
-      setRecognition(parsed);
-      applyRecognition(parsed, "cost");
-      setMessage(
-        "U obrázku teď umím přečíst hlavně název souboru. Pro přesnější rozpoznání vlož text faktury nebo payout e-mailu do Smart importu.",
-      );
-    }
+    setMessage("Soubor jsem jen nahrál. Náklad nebo payout vyplň ručně a připoj ho k účtu.");
   }
 
   function exportJson() {
@@ -1154,14 +1078,38 @@ export default function Home() {
               </article>
             </section>
 
+            <section className="process-grid" aria-label="Doporučený postup práce">
+              <article>
+                <span>01</span>
+                <strong>Založ challenge účet</strong>
+                <small>Vyber prop firmu, velikost účtu, trh, strategii a nech status Challenge.</small>
+              </article>
+              <article>
+                <span>02</span>
+                <strong>Přidej náklad ručně</strong>
+                <small>Vyber účet a zapiš challenge fee, reset nebo refund podle skutečné částky.</small>
+              </article>
+              <article>
+                <span>03</span>
+                <strong>Přidej payout ručně</strong>
+                <small>Až přijde výplata, napoj ji na stejný účet a dashboard spočítá ROI.</small>
+              </article>
+            </section>
+
             <section id="accounts" className="workspace-grid account-workspace">
               <form className="panel form-panel" onSubmit={saveAccount}>
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Prop accounts</p>
-                    <h2>Přidat / sledovat účet</h2>
+                    <h2>Přidat challenge účet</h2>
                   </div>
-                  <span className="soft-pill">status flow</span>
+                  <span className="soft-pill">výchozí status: Challenge</span>
+                </div>
+                <div className="manual-flow-card">
+                  <strong>1. Založ účet → 2. Přidej náklad → 3. Přidej payout</strong>
+                  <small>
+                    Faktura už nic sama nevyplňuje. Údaje zadáváš ručně a jen je napojíš na správný účet.
+                  </small>
                 </div>
                 <div className="form-grid">
                   <label>
@@ -1197,13 +1145,18 @@ export default function Home() {
                   </label>
                   <label>
                     Typ účtu
-                    <input
+                    <select
                       value={accountDraft.accountType}
                       onChange={(event) =>
                         setAccountDraft({ ...accountDraft, accountType: event.target.value })
                       }
-                      placeholder="challenge, instant funding..."
-                    />
+                    >
+                      <option value="challenge">Challenge</option>
+                      <option value="verification">Verification</option>
+                      <option value="funded">Funded</option>
+                      <option value="instant funding">Instant funding</option>
+                      <option value="futures evaluation">Futures evaluation</option>
+                    </select>
                   </label>
                   <label>
                     Trh
@@ -1237,7 +1190,9 @@ export default function Home() {
                       }
                     >
                       {accountStatuses.map((status) => (
-                        <option key={status}>{status}</option>
+                        <option key={status} value={status}>
+                          {statusLabels[status]}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -1252,8 +1207,28 @@ export default function Home() {
                     />
                   </label>
                 </div>
+                <div className="status-shortcuts" aria-label="Rychlé nastavení statusu účtu">
+                  {(["challenge", "verification", "funded", "failed"] as AccountStatus[]).map(
+                    (status) => (
+                      <button
+                        className={accountDraft.status === status ? "primary-button mini" : "ghost-button mini"}
+                        key={status}
+                        type="button"
+                        onClick={() =>
+                          setAccountDraft({
+                            ...accountDraft,
+                            status,
+                            accountType: status === "challenge" ? "challenge" : accountDraft.accountType,
+                          })
+                        }
+                      >
+                        {statusLabels[status]}
+                      </button>
+                    ),
+                  )}
+                </div>
                 <button className="primary-button" disabled={isSaving} type="submit">
-                  Uložit účet
+                  Uložit challenge účet
                 </button>
               </form>
 
@@ -1281,7 +1256,9 @@ export default function Home() {
                   >
                     <option value="">Všechny statusy</option>
                     {accountStatuses.map((status) => (
-                      <option key={status}>{status}</option>
+                      <option key={status} value={status}>
+                        {statusLabels[status]}
+                      </option>
                     ))}
                   </select>
                   <input
@@ -1305,7 +1282,7 @@ export default function Home() {
                   ) : (
                     filteredAccounts.map((account) => (
                       <article className="firm-card account-card" key={account.id}>
-                        <span>{account.status}</span>
+                        <span>{statusLabels[account.status]}</span>
                         <strong>{account.propFirm}</strong>
                         <small>{account.program || "Účet neuveden"} • {account.market || "trh neuveden"}</small>
                         <small>
@@ -1337,23 +1314,22 @@ export default function Home() {
                   />
                   <strong>Nahrát fakturu</strong>
                   <small>
-                    PDF, screenshot nebo CSV se uloží do Vercel Blob a potom ho můžeš
-                    poslat na AI rozpoznání.
+                    Soubor se jen uloží do Vercel Blob. Formulář se nevyplní automaticky.
                   </small>
                 </label>
 
                 <div className="smart-import">
                   <div className="section-title compact">
                     <div>
-                      <p className="eyebrow">Smart import</p>
-                      <h3>Vložit text faktury nebo payout e-mailu</h3>
+                      <p className="eyebrow">Volitelný náhled</p>
+                      <h3>Zkusit přečíst text bez vyplnění formuláře</h3>
                     </div>
-                    <span className="soft-pill">auto detect</span>
+                    <span className="soft-pill">manual only</span>
                   </div>
                   <textarea
                     value={documentText}
                     onChange={(event) => setDocumentText(event.target.value)}
-                    placeholder="Sem vlož text z faktury, potvrzení platby, payout e-mailu nebo PDF. Např. Lucid Trading, payout, 1 250 USD, 20.07.2026..."
+                    placeholder="Sem můžeš vložit text z faktury nebo e-mailu jen pro kontrolní náhled. Nic se samo neuloží ani nepředvyplní."
                     rows={5}
                   />
                   <button
@@ -1362,16 +1338,12 @@ export default function Home() {
                     type="button"
                     onClick={handleSmartImport}
                   >
-                    Rozpoznat a předvyplnit
+                    Jen zobrazit náhled
                   </button>
                 </div>
 
                 {recognition ? (
-                  <RecognitionPanel
-                    recognition={recognition}
-                    onUseCost={() => applyRecognition(recognition, "cost")}
-                    onUsePayout={() => applyRecognition(recognition, "payout")}
-                  />
+                  <RecognitionPanel recognition={recognition} />
                 ) : null}
 
                 <div className="document-stack">
@@ -1383,7 +1355,7 @@ export default function Home() {
                     <span className="soft-pill">{data.documents.length} souborů</span>
                   </div>
                   {data.documents.length === 0 ? (
-                    <p className="muted">Nahraj PDF nebo screenshot a potom spusť AI analýzu.</p>
+                    <p className="muted">Nahraj PDF nebo screenshot. AI náhled je volitelný a nic nevyplní automaticky.</p>
                   ) : (
                     data.documents.slice(0, 4).map((document) => (
                       <article className="document-card" key={document.id}>
@@ -1403,7 +1375,7 @@ export default function Home() {
                             type="button"
                             onClick={() => analyzeDocument(document.id)}
                           >
-                            AI analyze
+                            AI náhled
                           </button>
                           <button
                             className="ghost-button danger"
@@ -1438,22 +1410,9 @@ export default function Home() {
                       <span>Status</span>
                       <strong>{documentAnalysis.suggestedStatus || "bez návrhu"}</strong>
                     </div>
-                    <div className="recognition-actions">
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() => applyDocumentAnalysis(documentAnalysis, "cost")}
-                      >
-                        Použít jako náklad
-                      </button>
-                      <button
-                        className="ghost-button"
-                        type="button"
-                        onClick={() => applyDocumentAnalysis(documentAnalysis, "payout")}
-                      >
-                        Použít jako payout
-                      </button>
-                    </div>
+                    <p className="muted">
+                      AI výsledek je jen orientační kontrola. Formulář níže vyplň ručně a vyber správný účet.
+                    </p>
                   </div>
                 ) : null}
 
@@ -2013,15 +1972,7 @@ function Metric({
   );
 }
 
-function RecognitionPanel({
-  recognition,
-  onUseCost,
-  onUsePayout,
-}: {
-  recognition: RecognitionResult;
-  onUseCost: () => void;
-  onUsePayout: () => void;
-}) {
+function RecognitionPanel({ recognition }: { recognition: RecognitionResult }) {
   const kindLabel =
     recognition.kind === "payout"
       ? "Payout"
@@ -2062,14 +2013,9 @@ function RecognitionPanel({
         </div>
       ) : null}
 
-      <div className="recognition-actions">
-        <button className="ghost-button" type="button" onClick={onUseCost}>
-          Použít jako náklad
-        </button>
-        <button className="ghost-button" type="button" onClick={onUsePayout}>
-          Použít jako payout
-        </button>
-      </div>
+      <p className="muted">
+        Tohle je jen náhled. Pokud data sedí, přepiš je ručně do nákladu nebo payoutu.
+      </p>
     </div>
   );
 }
