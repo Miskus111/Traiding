@@ -810,18 +810,6 @@ export default function Home() {
     setMessage("Soubor jsem jen nahrál. Náklad nebo payout vyplň ručně a připoj ho k účtu.");
   }
 
-  function exportJson() {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "trader-cost-hub-export.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   const maxMonthly = Math.max(
     1,
     ...summary.monthly.map(([, values]) => values.costs + values.payouts),
@@ -1817,9 +1805,6 @@ export default function Home() {
                     <p className="eyebrow">Měsíční vývoj</p>
                     <h2>Cashflow</h2>
                   </div>
-                  <button className="ghost-button" onClick={exportJson}>
-                    Export JSON
-                  </button>
                 </div>
                 <div className="chart">
                   {summary.monthly.length === 0 ? (
@@ -1946,9 +1931,6 @@ export default function Home() {
                     <div className="recognition-actions">
                       <button className="ghost-button" type="button" onClick={() => window.print()}>
                         Vytisknout na nástěnku
-                      </button>
-                      <button className="ghost-button" type="button" onClick={exportJson}>
-                        Export JSON
                       </button>
                     </div>
                   </div>
