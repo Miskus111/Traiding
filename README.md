@@ -1,33 +1,45 @@
 # Trader Cost Hub
 
-Moderní webová aplikace pro sledování nákladů na prop trading, faktur,
-challenge fees, payoutů a čistého výsledku.
+Moderní multi-user webová aplikace pro sledování nákladů na prop trading,
+faktur, challenge fees, payoutů a čistého výsledku.
 
-## Co první verze umí
+## Funkce
 
-- přihlášení přes e-mail pro oddělení dat více lokálních uživatelů,
-- nahrání faktury jako soubor a ruční doplnění částky,
-- základní předvyplnění dat z textových nebo CSV faktur,
-- ruční přidávání payoutů,
-- výpočet nákladů, payoutů, čistého výsledku a ROI v CZK,
-- přehled podle měsíců a podle prop firmy,
-- historie nákladů a payoutů,
+- registrace a přihlášení uživatelů,
+- hashovaná hesla a httpOnly session cookie,
+- Postgres databáze pro účty, náklady a payouty,
+- oddělení dat podle přihlášeného uživatele,
+- přidávání faktur / challenge fees,
+- přidávání payoutů,
+- souhrn nákladů, payoutů, čistého výsledku a ROI,
+- přehled podle měsíců a prop firem,
 - export dat do JSON.
 
-## Důležitá poznámka k účtům
+## Vercel nastavení
 
-Aktuální verze je prototyp: data se ukládají v prohlížeči přes `localStorage`.
-To je dobré pro rychlé ověření workflow a designu, ale není to ostré veřejné
-multi-user řešení.
+Projekt je připravený pro Vercel jako čistý Next.js projekt.
 
-Pro produkční verzi bude potřeba doplnit:
+Ve Vercelu přidej Postgres databázi a nastav jednu z těchto env proměnných:
 
-- skutečné přihlášení,
-- databázi pro uživatele, faktury a payouty,
-- úložiště souborů pro faktury,
-- OCR nebo parser pro automatické čtení PDF faktur.
+```txt
+POSTGRES_URL=...
+```
 
-## Spuštění
+nebo:
+
+```txt
+DATABASE_URL=...
+```
+
+Doporučené je nastavit také:
+
+```txt
+SESSION_SECRET=dlouhy-nahodny-tajny-retezec
+```
+
+Tabulky se vytvoří automaticky při prvním API requestu.
+
+## Lokální spuštění
 
 Je potřeba Node.js `22.x`.
 
@@ -36,10 +48,14 @@ npm install
 npm run dev
 ```
 
-Potom otevři lokální URL, kterou příkaz vypíše.
+Pro lokální databázi nastav `.env.local`:
 
-## Další otázky pro pokračování
+```txt
+POSTGRES_URL=postgres://user:password@localhost:5432/trader_cost_hub
+SESSION_SECRET=local-secret-change-me
+```
 
-1. Má být ostré přihlášení přes e-mail a heslo, Google, nebo „Sign in with ChatGPT“?
-2. Jaké prop firmy používáš nejčastěji?
-3. Chceš náklady a payouty počítat primárně v CZK, EUR, nebo USD?
+## Poznámka k fakturám
+
+Aktuální verze ukládá název nahrané faktury a metadata. Pro reálné ukládání PDF
+souborů je další krok napojení na Vercel Blob nebo jiné souborové úložiště.

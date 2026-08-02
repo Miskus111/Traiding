@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Trader Cost Hub",
   description:
-    "Moderní přehled nákladů na prop trading, faktur, payoutů a čistého výsledku.",
+    "Multi-user systém pro prop trading náklady, faktury, payouty a čistý výsledek.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
