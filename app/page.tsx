@@ -10,6 +10,24 @@ type UserData = {
 };
 
 type AuthMode = "login" | "register";
+type RecognitionKind = "cost" | "payout" | "unknown";
+
+type PropFirmHint = {
+  name: string;
+  aliases: string[];
+};
+
+type RecognitionResult = {
+  kind: RecognitionKind;
+  propFirm: string;
+  program: string;
+  amount: string;
+  currency: Currency;
+  date?: string;
+  confidence: number;
+  signals: string[];
+  sourceName?: string;
+};
 
 const exchangeToCzk: Record<Currency, number> = {
   CZK: 1,
@@ -17,47 +35,48 @@ const exchangeToCzk: Record<Currency, number> = {
   USD: 23.1,
 };
 
-const propFirmHints = [
-  "Alpha Capital",
-  "Apex Trader Funding",
-  "Audacity Capital",
-  "Blue Guardian",
-  "BrightFunded",
-  "Bulenox",
-  "City Traders Imperium",
-  "DNA Funded",
-  "E8 Markets",
-  "Earn2Trade",
-  "Finotive Funding",
-  "FTMO",
-  "FunderPro",
-  "Funded Engineer",
-  "Funded Trading Plus",
-  "FundedNext",
-  "Funding Pips",
-  "FXIFY",
-  "Goat Funded Trader",
-  "Hola Prime",
-  "Instant Funding",
-  "Karma Prop Traders",
-  "Leeloo Trading",
-  "Lucid",
-  "Lucid Trading",
-  "Lux Trading Firm",
-  "Maven Trading",
-  "Ment Funding",
-  "MyFundedFutures",
-  "MyFundedFX",
-  "OANDA Prop Trader",
-  "OneUp Trader",
-  "Take Profit Trader",
-  "The Trading Pit",
-  "The5ers",
-  "Topstep",
-  "TopTier Trader",
-  "Trade The Pool",
-  "True Forex Funds",
+const propFirmCatalog: PropFirmHint[] = [
+  { name: "Alpha Capital", aliases: ["alpha capital", "alpha capital group"] },
+  { name: "Apex Trader Funding", aliases: ["apex", "apex trader", "apex trader funding"] },
+  { name: "Audacity Capital", aliases: ["audacity", "audacity capital"] },
+  { name: "Blue Guardian", aliases: ["blue guardian", "blueguardian"] },
+  { name: "BrightFunded", aliases: ["brightfunded", "bright funded"] },
+  { name: "Bulenox", aliases: ["bulenox"] },
+  { name: "City Traders Imperium", aliases: ["city traders imperium", "cti"] },
+  { name: "DNA Funded", aliases: ["dna funded"] },
+  { name: "E8 Markets", aliases: ["e8", "e8 markets", "e8 funding"] },
+  { name: "Earn2Trade", aliases: ["earn2trade", "earn 2 trade"] },
+  { name: "Finotive Funding", aliases: ["finotive", "finotive funding"] },
+  { name: "FTMO", aliases: ["ftmo"] },
+  { name: "FunderPro", aliases: ["funderpro", "funder pro"] },
+  { name: "Funded Engineer", aliases: ["funded engineer"] },
+  { name: "Funded Trading Plus", aliases: ["funded trading plus", "ftp prop"] },
+  { name: "FundedNext", aliases: ["fundednext", "funded next"] },
+  { name: "Funding Pips", aliases: ["funding pips", "fundingpips"] },
+  { name: "FXIFY", aliases: ["fxify"] },
+  { name: "Goat Funded Trader", aliases: ["goat funded", "goat funded trader"] },
+  { name: "Hola Prime", aliases: ["hola prime", "holaprime"] },
+  { name: "Instant Funding", aliases: ["instant funding"] },
+  { name: "Karma Prop Traders", aliases: ["karma prop", "karma prop traders"] },
+  { name: "Leeloo Trading", aliases: ["leeloo", "leeloo trading"] },
+  { name: "Lucid Trading", aliases: ["lucid", "lucid trading", "lucid prop"] },
+  { name: "Lux Trading Firm", aliases: ["lux trading", "lux trading firm"] },
+  { name: "Maven Trading", aliases: ["maven", "maven trading"] },
+  { name: "Ment Funding", aliases: ["ment funding"] },
+  { name: "MyFundedFutures", aliases: ["myfundedfutures", "my funded futures"] },
+  { name: "MyFundedFX", aliases: ["myfundedfx", "my funded fx"] },
+  { name: "OANDA Prop Trader", aliases: ["oanda prop", "oanda prop trader"] },
+  { name: "OneUp Trader", aliases: ["oneup", "oneup trader"] },
+  { name: "Take Profit Trader", aliases: ["take profit trader", "tpt"] },
+  { name: "The Trading Pit", aliases: ["the trading pit", "trading pit"] },
+  { name: "The5ers", aliases: ["the5ers", "the 5ers", "5ers"] },
+  { name: "Topstep", aliases: ["topstep", "topstep trader"] },
+  { name: "TopTier Trader", aliases: ["toptier", "top tier trader", "toptier trader"] },
+  { name: "Trade The Pool", aliases: ["trade the pool", "ttp"] },
+  { name: "True Forex Funds", aliases: ["true forex funds", "trueforexfunds"] },
 ];
+
+const propFirmHints = propFirmCatalog.map((firm) => firm.name);
 
 const defaultInvoice = () => ({
   propFirm: "",
@@ -71,6 +90,7 @@ const defaultInvoice = () => ({
 
 const defaultPayout = () => ({
   propFirm: "",
+  program: "",
   amount: "",
   currency: "EUR" as Currency,
   date: new Date().toISOString().slice(0, 10),
@@ -131,6 +151,191 @@ function parseInvoiceText(text: string) {
   };
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function parseMoney(value: string) {
+  const cleaned = value.replace(/[^\d,.\s]/g, "").replace(/\s/g, "");
+  if (!cleaned) return "";
+
+  const comma = cleaned.lastIndexOf(",");
+  const dot = cleaned.lastIndexOf(".");
+  const decimalSeparator = comma > dot ? "," : dot > comma ? "." : "";
+  const thousandsSeparator = decimalSeparator === "," ? "." : ",";
+  const normalized = decimalSeparator
+    ? cleaned
+        .split(thousandsSeparator)
+        .join("")
+        .replace(decimalSeparator, ".")
+    : cleaned;
+  const amount = Number(normalized);
+
+  return Number.isFinite(amount) && amount > 0 ? amount.toFixed(2) : "";
+}
+
+function inferCurrency(text: string, nearby = ""): Currency {
+  const sample = `${nearby} ${text}`;
+  if (/czk|kč|kc/i.test(sample)) return "CZK";
+  if (/usd|\$|usdt/i.test(sample)) return "USD";
+  return "EUR";
+}
+
+function normalizeDate(value?: string) {
+  if (!value) return undefined;
+  const clean = value.trim();
+  const iso = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return clean;
+
+  const local = clean.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (!local) return undefined;
+
+  const day = local[1].padStart(2, "0");
+  const month = local[2].padStart(2, "0");
+  const year = local[3].length === 2 ? `20${local[3]}` : local[3];
+  return `${year}-${month}-${day}`;
+}
+
+function detectPropFirm(text: string) {
+  const normalized = normalizeText(text);
+  return (
+    propFirmCatalog.find((firm) =>
+      firm.aliases.some((alias) => normalized.includes(normalizeText(alias))),
+    )?.name ?? ""
+  );
+}
+
+function detectProgram(text: string) {
+  const clean = text.replace(/\s+/g, " ");
+  const explicit = clean.match(
+    /(?:program|account|challenge|evaluation|funded account|účet|ucet)[^\w$€]{0,18}([$€]?\s?\d{1,3}(?:[.,\s]?\d{3})?\s?k?)/i,
+  );
+  const accountSize = clean.match(
+    /(?:^|\s)(5k|10k|25k|50k|100k|150k|200k|250k|300k|400k|500k|1m|\d{2,3}\s?000)(?:\s|$)/i,
+  );
+  const value = explicit?.[1] ?? accountSize?.[1];
+
+  return value ? `Account ${value.replace(/\s+/g, "").toUpperCase()}` : "";
+}
+
+function keywordScore(text: string, keywords: string[]) {
+  const normalized = normalizeText(text);
+  return keywords.reduce(
+    (score, keyword) => score + (normalized.includes(normalizeText(keyword)) ? 1 : 0),
+    0,
+  );
+}
+
+function extractAmount(text: string, kind: RecognitionKind) {
+  const clean = text.replace(/\s+/g, " ");
+  const payoutKeywords =
+    "payout|withdrawal|withdrawn|profit split|profit share|performance fee|distribution|vyplata|vyplaceno|vyplacena castka|vyber";
+  const costKeywords =
+    "total|amount due|amount paid|paid|price|fee|challenge fee|reset fee|activation fee|invoice total|celkem|castka|cena|uhrazeno|faktura";
+  const preferred = kind === "payout" ? payoutKeywords : costKeywords;
+  const secondary = kind === "payout" ? costKeywords : payoutKeywords;
+  const money =
+    "([$€]?\\s?\\d{1,3}(?:[\\s.,]?\\d{3})*(?:[,.]\\d{1,2})?|[$€]?\\s?\\d{2,6}(?:[,.]\\d{1,2})?)\\s?(CZK|Kč|KC|EUR|USD|€|\\$)?";
+  const patterns = [
+    new RegExp(`(?:${preferred})[^\\d$€]{0,60}${money}`, "i"),
+    new RegExp(`${money}[^\\w$€]{0,30}(?:${preferred})`, "i"),
+    new RegExp(`(?:${secondary})[^\\d$€]{0,60}${money}`, "i"),
+  ];
+
+  for (const pattern of patterns) {
+    const match = clean.match(pattern);
+    const amount = parseMoney(match?.[1] ?? "");
+    if (amount) {
+      return {
+        amount,
+        currency: inferCurrency(clean, `${match?.[0] ?? ""} ${match?.[2] ?? ""}`),
+      };
+    }
+  }
+
+  const allAmounts = [...clean.matchAll(new RegExp(money, "gi"))]
+    .map((match) => ({
+      amount: parseMoney(match[1]),
+      currency: inferCurrency(clean, `${match[0]} ${match[2] ?? ""}`),
+    }))
+    .filter((candidate) => candidate.amount && Number(candidate.amount) > 0)
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
+
+  return allAmounts[0] ?? { amount: "", currency: inferCurrency(clean) };
+}
+
+function parseTradingDocument(text: string, sourceName?: string): RecognitionResult {
+  const clean = `${sourceName ?? ""} ${text}`.replace(/\s+/g, " ");
+  const payoutScore = keywordScore(clean, [
+    "payout",
+    "withdrawal",
+    "withdrawn",
+    "profit split",
+    "profit share",
+    "performance fee",
+    "distribution",
+    "výplata",
+    "vyplaceno",
+    "výběr",
+  ]);
+  const costScore = keywordScore(clean, [
+    "invoice",
+    "receipt",
+    "challenge fee",
+    "reset fee",
+    "activation fee",
+    "payment",
+    "paid",
+    "order",
+    "faktura",
+    "uhrazeno",
+    "celkem",
+  ]);
+  const kind: RecognitionKind =
+    payoutScore > costScore ? "payout" : costScore > 0 ? "cost" : "unknown";
+  const fallback = parseInvoiceText(clean);
+  const amount = extractAmount(clean, kind);
+  const detectedAmount = amount.amount || fallback.amount;
+  const detectedCurrency = amount.amount ? amount.currency : fallback.currency;
+  const date = normalizeDate(
+    clean.match(/(\d{4}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/)?.[1],
+  ) ?? normalizeDate(fallback.date);
+  const propFirm = detectPropFirm(clean) || fallback.propFirm;
+  const program = detectProgram(clean);
+  const signals = [
+    propFirm ? `Prop firma: ${propFirm}` : "",
+    detectedAmount ? `Částka: ${formatMoney(Number(detectedAmount), detectedCurrency)}` : "",
+    date ? `Datum: ${date}` : "",
+    program ? `Program: ${program}` : "",
+    kind === "payout" ? "Typ: payout/výplata" : "",
+    kind === "cost" ? "Typ: náklad/faktura" : "",
+  ].filter(Boolean);
+  const confidence = Math.min(
+    98,
+    25 +
+      (propFirm ? 22 : 0) +
+      (detectedAmount ? 24 : 0) +
+      (date ? 12 : 0) +
+      (program ? 8 : 0) +
+      (kind !== "unknown" ? 9 : 0),
+  );
+
+  return {
+    kind,
+    propFirm,
+    program,
+    amount: detectedAmount,
+    currency: detectedCurrency,
+    date,
+    confidence,
+    signals,
+    sourceName,
+  };
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type")) {
@@ -161,6 +366,8 @@ export default function Home() {
   });
   const [invoiceDraft, setInvoiceDraft] = useState(defaultInvoice);
   const [payoutDraft, setPayoutDraft] = useState(defaultPayout);
+  const [documentText, setDocumentText] = useState("");
+  const [recognition, setRecognition] = useState<RecognitionResult | null>(null);
   const [data, setData] = useState<UserData>({ invoices: [], payouts: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -215,30 +422,37 @@ export default function Home() {
     );
     const net = payouts - costs;
     const roi = costs > 0 ? (net / costs) * 100 : 0;
-    const byFirm = [...data.invoices, ...data.payouts].reduce<
-      Record<string, { costs: number; payouts: number }>
-    >((acc, item) => {
-      const firm = item.propFirm || "Nezařazeno";
-      acc[firm] ??= { costs: 0, payouts: 0 };
-      if ("program" in item) {
-        acc[firm].costs += toCzk(item.amount, item.currency);
-      } else {
-        acc[firm].payouts += toCzk(item.amount, item.currency);
-      }
-      return acc;
-    }, {});
-    const monthly = [...data.invoices, ...data.payouts].reduce<
-      Record<string, { costs: number; payouts: number }>
-    >((acc, item) => {
-      const label = monthLabel(item.date);
-      acc[label] ??= { costs: 0, payouts: 0 };
-      if ("program" in item) {
-        acc[label].costs += toCzk(item.amount, item.currency);
-      } else {
-        acc[label].payouts += toCzk(item.amount, item.currency);
-      }
-      return acc;
-    }, {});
+    const byFirm: Record<string, { costs: number; payouts: number }> = {};
+    const byAccount: Record<string, { costs: number; payouts: number }> = {};
+    const monthly: Record<string, { costs: number; payouts: number }> = {};
+
+    data.invoices.forEach((invoice) => {
+      const firm = invoice.propFirm || "Nezařazeno";
+      const account = `${firm} • ${invoice.program || "Účet neuveden"}`;
+      const month = monthLabel(invoice.date);
+      const amount = toCzk(invoice.amount, invoice.currency);
+
+      byFirm[firm] ??= { costs: 0, payouts: 0 };
+      byFirm[firm].costs += amount;
+      byAccount[account] ??= { costs: 0, payouts: 0 };
+      byAccount[account].costs += amount;
+      monthly[month] ??= { costs: 0, payouts: 0 };
+      monthly[month].costs += amount;
+    });
+
+    data.payouts.forEach((payout) => {
+      const firm = payout.propFirm || "Nezařazeno";
+      const account = `${firm} • ${payout.program || "Účet neuveden"}`;
+      const month = monthLabel(payout.date);
+      const amount = toCzk(payout.amount, payout.currency);
+
+      byFirm[firm] ??= { costs: 0, payouts: 0 };
+      byFirm[firm].payouts += amount;
+      byAccount[account] ??= { costs: 0, payouts: 0 };
+      byAccount[account].payouts += amount;
+      monthly[month] ??= { costs: 0, payouts: 0 };
+      monthly[month].payouts += amount;
+    });
 
     return {
       costs,
@@ -246,6 +460,7 @@ export default function Home() {
       net,
       roi,
       byFirm: Object.entries(byFirm),
+      byAccount: Object.entries(byAccount),
       monthly: Object.entries(monthly).slice(-6),
     };
   }, [data]);
@@ -347,28 +562,69 @@ export default function Home() {
     }));
   }
 
+  function applyRecognition(parsed: RecognitionResult, target?: Exclude<RecognitionKind, "unknown">) {
+    const kind = target ?? (parsed.kind === "payout" ? "payout" : "cost");
+    const note = parsed.signals.length
+      ? `Rozpoznáno: ${parsed.signals.join(" • ")}`
+      : "Rozpoznáno z dokladu.";
+
+    if (kind === "payout") {
+      setPayoutDraft((current) => ({
+        ...current,
+        propFirm: parsed.propFirm || current.propFirm,
+        program: parsed.program || current.program,
+        amount: parsed.amount || current.amount,
+        currency: parsed.currency,
+        date: parsed.date || current.date,
+        note: current.note || note,
+      }));
+    } else {
+      setInvoiceDraft((current) => ({
+        ...current,
+        propFirm: parsed.propFirm || current.propFirm,
+        program: parsed.program || current.program,
+        amount: parsed.amount || current.amount,
+        currency: parsed.currency,
+        date: parsed.date || current.date,
+        fileName: parsed.sourceName || current.fileName,
+        note: current.note || note,
+      }));
+    }
+  }
+
+  function recognizeText(text: string, sourceName?: string) {
+    const parsed = parseTradingDocument(text, sourceName);
+    setRecognition(parsed);
+    applyRecognition(parsed);
+    setMessage(
+      parsed.signals.length
+        ? `Rozpoznáno ${parsed.confidence}%: ${parsed.signals.join(" • ")}. Zkontroluj a ulož.`
+        : "Z dokladu se nepodařilo najít jasná data. Zkus vložit delší text z faktury nebo payout e-mailu.",
+    );
+  }
+
+  function handleSmartImport() {
+    recognizeText(documentText);
+  }
+
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setInvoiceDraft((current) => ({ ...current, fileName: file.name }));
-    if (file.type.includes("text") || file.name.match(/\.(txt|csv)$/i)) {
+    if (file.type.includes("text") || file.name.match(/\.(txt|csv|pdf)$/i)) {
       const reader = new FileReader();
       reader.onload = () => {
-        const parsed = parseInvoiceText(String(reader.result ?? ""));
-        setInvoiceDraft((current) => ({
-          ...current,
-          propFirm: parsed.propFirm || current.propFirm,
-          amount: parsed.amount || current.amount,
-          currency: parsed.currency,
-          date: parsed.date || current.date,
-          fileName: file.name,
-        }));
-        setMessage("Z textové faktury jsem zkusil předvyplnit firmu, částku a měnu.");
+        recognizeText(String(reader.result ?? ""), file.name);
       };
       reader.readAsText(file);
     } else {
-      setMessage("Soubor je připojený jako název faktury. Pro ukládání PDF přidáme Vercel Blob v dalším kroku.");
+      const parsed = parseTradingDocument(file.name, file.name);
+      setRecognition(parsed);
+      applyRecognition(parsed, "cost");
+      setMessage(
+        "U obrázku teď umím přečíst hlavně název souboru. Pro přesnější rozpoznání vlož text faktury nebo payout e-mailu do Smart importu.",
+      );
     }
   }
 
@@ -578,6 +834,38 @@ export default function Home() {
                   </small>
                 </label>
 
+                <div className="smart-import">
+                  <div className="section-title compact">
+                    <div>
+                      <p className="eyebrow">Smart import</p>
+                      <h3>Vložit text faktury nebo payout e-mailu</h3>
+                    </div>
+                    <span className="soft-pill">auto detect</span>
+                  </div>
+                  <textarea
+                    value={documentText}
+                    onChange={(event) => setDocumentText(event.target.value)}
+                    placeholder="Sem vlož text z faktury, potvrzení platby, payout e-mailu nebo PDF. Např. Lucid Trading, payout, 1 250 USD, 20.07.2026..."
+                    rows={5}
+                  />
+                  <button
+                    className="ghost-button full"
+                    disabled={!documentText.trim()}
+                    type="button"
+                    onClick={handleSmartImport}
+                  >
+                    Rozpoznat a předvyplnit
+                  </button>
+                </div>
+
+                {recognition ? (
+                  <RecognitionPanel
+                    recognition={recognition}
+                    onUseCost={() => applyRecognition(recognition, "cost")}
+                    onUsePayout={() => applyRecognition(recognition, "payout")}
+                  />
+                ) : null}
+
                 <div className="form-grid">
                   <label>
                     Prop firma
@@ -681,6 +969,19 @@ export default function Home() {
                         })
                       }
                       placeholder="FTMO, Topstep..."
+                    />
+                  </label>
+                  <label>
+                    Program / účet
+                    <input
+                      value={payoutDraft.program}
+                      onChange={(event) =>
+                        setPayoutDraft({
+                          ...payoutDraft,
+                          program: event.target.value,
+                        })
+                      }
+                      placeholder="Challenge 100k"
                     />
                   </label>
                   <label>
@@ -817,6 +1118,32 @@ export default function Home() {
               </div>
             </section>
 
+            <section className="panel account-panel">
+              <div className="section-title">
+                <div>
+                  <p className="eyebrow">Podle účtu</p>
+                  <h2>Náklady vs payouty na konkrétní account</h2>
+                </div>
+                <span className="soft-pill">firma + program</span>
+              </div>
+              <div className="account-grid">
+                {summary.byAccount.length === 0 ? (
+                  <p className="muted">Až přidáš náklad nebo payout, uvidíš tady výsledek po účtech.</p>
+                ) : (
+                  summary.byAccount.map(([account, values]) => (
+                    <article className="firm-card account-card" key={account}>
+                      <span>{account}</span>
+                      <strong>{formatCzk(values.payouts - values.costs)}</strong>
+                      <small>
+                        Účet stál {formatCzk(values.costs)} • Payout{" "}
+                        {formatCzk(values.payouts)}
+                      </small>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
             <section className="records-grid">
               <RecordsTable
                 title="Náklady"
@@ -837,7 +1164,7 @@ export default function Home() {
                 rows={data.payouts.map((payout) => ({
                   id: payout.id,
                   name: payout.propFirm,
-                  detail: `${payout.split}% split`,
+                  detail: `${payout.program || "Účet neuveden"} • ${payout.split}% split`,
                   amount: formatMoney(payout.amount, payout.currency),
                   date: payout.date,
                   note: payout.note,
@@ -849,16 +1176,16 @@ export default function Home() {
         ) : (
           <section className="feature-grid">
             <Feature
-              title="Účty pro více traderů"
-              text="Každý uživatel má vlastní bezpečné přihlášení a oddělené finance, faktury i payouty."
+              title="Smart import dokladů"
+              text="Vložíš text faktury nebo payout e-mailu a systém zkusí rozpoznat firmu, účet, částku, měnu i datum."
             />
             <Feature
-              title="Širší katalog prop firem"
-              text="Našeptávač obsahuje FTMO, The5ers, Funding Pips, Lucid, Apex, Topstep a další firmy."
+              title="Výsledek podle účtu"
+              text="Dashboard spojuje náklady a payouty podle prop firmy a programu, třeba Lucid Trading • Account 100K."
             />
             <Feature
               title="Připravené na spuštění"
-              text="Next.js API routes, serverové cookies a automatické tabulky v Postgres databázi."
+              text="Multi-user účty, Neon/Postgres databáze, serverové cookies a katalog prop firem pro reálný provoz."
             />
           </section>
         )}
@@ -909,6 +1236,67 @@ function Metric({
       <span>{label}</span>
       <strong className={positive === false ? "negative" : ""}>{value}</strong>
     </article>
+  );
+}
+
+function RecognitionPanel({
+  recognition,
+  onUseCost,
+  onUsePayout,
+}: {
+  recognition: RecognitionResult;
+  onUseCost: () => void;
+  onUsePayout: () => void;
+}) {
+  const kindLabel =
+    recognition.kind === "payout"
+      ? "Payout"
+      : recognition.kind === "cost"
+        ? "Náklad"
+        : "Nejisté";
+
+  return (
+    <div className={`recognition-card recognition-${recognition.kind}`}>
+      <div className="recognition-head">
+        <div>
+          <p className="eyebrow">Rozpoznáno z dokladu</p>
+          <h3>{kindLabel}</h3>
+        </div>
+        <span className="confidence">{recognition.confidence}% jistota</span>
+      </div>
+
+      <div className="recognition-grid">
+        <span>Firma</span>
+        <strong>{recognition.propFirm || "nenalezeno"}</strong>
+        <span>Částka</span>
+        <strong>
+          {recognition.amount
+            ? formatMoney(Number(recognition.amount), recognition.currency)
+            : "nenalezeno"}
+        </strong>
+        <span>Datum</span>
+        <strong>{recognition.date || "nenalezeno"}</strong>
+        <span>Program</span>
+        <strong>{recognition.program || "nenalezeno"}</strong>
+      </div>
+
+      {recognition.signals.length ? (
+        <div className="signal-row">
+          {recognition.signals.map((signal) => (
+            <span key={signal}>{signal}</span>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="recognition-actions">
+        <button className="ghost-button" type="button" onClick={onUseCost}>
+          Použít jako náklad
+        </button>
+        <button className="ghost-button" type="button" onClick={onUsePayout}>
+          Použít jako payout
+        </button>
+      </div>
+    </div>
   );
 }
 

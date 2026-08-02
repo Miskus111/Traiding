@@ -72,6 +72,7 @@ export async function ensureSchema() {
       id UUID PRIMARY KEY,
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       prop_firm TEXT NOT NULL,
+      program TEXT NOT NULL DEFAULT '',
       amount NUMERIC(14, 2) NOT NULL,
       currency TEXT NOT NULL CHECK (currency IN ('CZK', 'EUR', 'USD')),
       payout_date DATE NOT NULL,
@@ -86,6 +87,9 @@ export async function ensureSchema() {
   );
   await db.query(
     "CREATE INDEX IF NOT EXISTS payouts_user_date_idx ON payouts(user_id, payout_date DESC)",
+  );
+  await db.query(
+    "ALTER TABLE payouts ADD COLUMN IF NOT EXISTS program TEXT NOT NULL DEFAULT ''",
   );
 
   schemaReady = true;

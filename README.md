@@ -11,7 +11,10 @@ faktur, challenge fees, payoutů a čistého výsledku.
 - oddělení dat podle přihlášeného uživatele,
 - přidávání faktur / challenge fees,
 - přidávání payoutů,
+- smart import textu z faktury nebo payout e-mailu,
+- rozpoznání prop firmy, programu/účtu, částky, měny, data a typu záznamu,
 - souhrn nákladů, payoutů, čistého výsledku a ROI,
+- přehled podle konkrétního účtu / programu,
 - přehled podle měsíců a prop firem,
 - export dat do JSON.
 

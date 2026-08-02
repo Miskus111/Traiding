@@ -20,6 +20,7 @@ export type Invoice = {
 export type Payout = {
   id: string;
   propFirm: string;
+  program: string;
   amount: number;
   currency: Currency;
   date: string;

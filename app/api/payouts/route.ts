@@ -16,6 +16,7 @@ export const runtime = "nodejs";
 type PayoutRow = {
   id: string;
   prop_firm: string;
+  program: string;
   amount: string;
   currency: Payout["currency"];
   date: string;
@@ -27,6 +28,7 @@ function mapPayout(row: PayoutRow): Payout {
   return {
     id: row.id,
     propFirm: row.prop_firm,
+    program: row.program,
     amount: Number(row.amount),
     currency: row.currency,
     date: row.date,
@@ -40,7 +42,7 @@ export async function GET() {
   if (!user) return unauthorized();
 
   const result = await query<PayoutRow>(
-    `SELECT id, prop_firm, amount::text AS amount, currency, payout_date::text AS date, split, note
+    `SELECT id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note
      FROM payouts
      WHERE user_id = $1
      ORDER BY payout_date DESC, created_at DESC`,
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null);
   const propFirm = requiredText(body?.propFirm);
+  const program = requiredText(body?.program);
   const amount = numberValue(body?.amount);
   const split = Math.max(0, Math.min(100, Math.round(numberValue(body?.split))));
 
@@ -68,13 +71,14 @@ export async function POST(request: NextRequest) {
 
   const result = await query<PayoutRow>(
     `INSERT INTO payouts
-       (id, user_id, prop_firm, amount, currency, payout_date, split, note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, prop_firm, amount::text AS amount, currency, payout_date::text AS date, split, note`,
+       (id, user_id, prop_firm, program, amount, currency, payout_date, split, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note`,
     [
       crypto.randomUUID(),
       user.id,
       propFirm,
+      program,
       amount,
       currencyValue(body?.currency),
       dateValue(body?.date),

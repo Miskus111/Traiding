@@ -50,7 +50,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -368,7 +369,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -383,13 +385,21 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: rgba(46, 229, 157, 0.8);
   box-shadow: 0 0 0 4px rgba(46, 229, 157, 0.13);
 }
 
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: #6e7c93;
+}
+
+textarea {
+  min-height: 8.5rem;
+  line-height: 1.55;
+  resize: vertical;
 }
 
 .primary-button,
@@ -415,6 +425,10 @@ input::placeholder {
 }
 
 .primary-button.full {
+  width: 100%;
+}
+
+.ghost-button.full {
   width: 100%;
 }
 
@@ -520,6 +534,17 @@ input::placeholder {
   margin-bottom: 1.1rem;
 }
 
+.section-title.compact {
+  margin-bottom: 0.75rem;
+}
+
+.section-title.compact h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -552,8 +577,97 @@ input::placeholder {
   color: var(--muted);
 }
 
+.smart-import,
+.recognition-card {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(135deg, rgba(76, 141, 255, 0.08), rgba(46, 229, 157, 0.045)),
+    rgba(2, 8, 23, 0.36);
+  padding: 1rem;
+}
+
+.recognition-card {
+  border-color: rgba(46, 229, 157, 0.22);
+}
+
+.recognition-payout {
+  border-color: rgba(76, 141, 255, 0.28);
+  background:
+    linear-gradient(135deg, rgba(76, 141, 255, 0.13), rgba(46, 229, 157, 0.05)),
+    rgba(2, 8, 23, 0.42);
+}
+
+.recognition-unknown {
+  border-color: rgba(255, 180, 92, 0.28);
+}
+
+.recognition-head,
+.recognition-actions,
+.signal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.recognition-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.confidence {
+  border: 1px solid rgba(46, 229, 157, 0.3);
+  border-radius: 999px;
+  background: rgba(46, 229, 157, 0.1);
+  color: #b7ffe0;
+  font-size: 0.76rem;
+  font-weight: 900;
+  padding: 0.48rem 0.7rem;
+}
+
+.recognition-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.45rem 0.85rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0.85rem;
+}
+
+.recognition-grid span,
+.signal-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.recognition-grid strong {
+  overflow: hidden;
+  color: #f8fbff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-row {
+  justify-content: flex-start;
+}
+
+.signal-row span {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.065);
+  padding: 0.4rem 0.62rem;
+}
+
 .chart,
 .firm-grid,
+.account-grid,
 .records {
   display: grid;
   gap: 0.85rem;
@@ -594,8 +708,19 @@ input::placeholder {
   background: linear-gradient(90deg, var(--blue), var(--green));
 }
 
-.firm-grid {
+.firm-grid,
+.account-grid {
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.account-panel {
+  margin-top: 1rem;
+}
+
+.account-card {
+  background:
+    linear-gradient(135deg, rgba(46, 229, 157, 0.08), rgba(76, 141, 255, 0.06)),
+    rgba(2, 8, 23, 0.42);
 }
 
 .firm-card,
