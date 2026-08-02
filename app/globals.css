@@ -597,6 +597,7 @@ textarea {
 }
 
 .metrics-grid,
+.focus-board,
 .workspace-grid,
 .analytics-grid,
 .records-grid,
@@ -641,6 +642,73 @@ textarea {
 
 .metrics-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.focus-board {
+  grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 0.75fr));
+}
+
+.focus-card {
+  display: grid;
+  align-content: space-between;
+  min-height: 10rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.45rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035)),
+    rgba(2, 8, 23, 0.38);
+  padding: 1rem;
+}
+
+.focus-card-main {
+  border-color: rgba(46, 229, 157, 0.24);
+  background:
+    linear-gradient(135deg, rgba(46, 229, 157, 0.14), rgba(76, 141, 255, 0.08)),
+    rgba(2, 8, 23, 0.46);
+}
+
+.focus-card h3 {
+  margin: 0.15rem 0 0.45rem;
+  color: #f8fbff;
+  font-size: clamp(1.35rem, 2.4vw, 2rem);
+  letter-spacing: -0.05em;
+}
+
+.focus-card p:not(.eyebrow),
+.focus-card span,
+.focus-card small {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.focus-card strong {
+  display: block;
+  margin: 0.4rem 0 0.2rem;
+  color: #f8fbff;
+  font-size: 2.1rem;
+  font-weight: 950;
+  letter-spacing: -0.06em;
+}
+
+.focus-card .primary-button {
+  width: fit-content;
+}
+
+.quick-links-card {
+  gap: 0.55rem;
+}
+
+.quick-links-card a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f8fbff;
+  padding: 0.62rem 0.8rem;
+  font-weight: 850;
+  text-decoration: none;
 }
 
 .insight-strip {
@@ -838,6 +906,37 @@ textarea {
   border-color: rgba(46, 229, 157, 0.22);
 }
 
+.smart-import summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.smart-import summary::-webkit-details-marker {
+  display: none;
+}
+
+.smart-import summary::after {
+  content: "Rozbalit";
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  padding: 0.42rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.smart-import[open] summary {
+  margin-bottom: 0.85rem;
+}
+
+.smart-import[open] summary::after {
+  content: "Sbalit";
+}
+
 .recognition-payout {
   border-color: rgba(76, 141, 255, 0.28);
   background:
@@ -1005,6 +1104,11 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.manual-flow-card.compact {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem;
+}
+
 .status-shortcuts {
   display: flex;
   flex-wrap: wrap;
@@ -1015,6 +1119,33 @@ textarea {
 .filter-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 1rem;
+}
+
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.portfolio-summary article {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0.85rem;
+}
+
+.portfolio-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.portfolio-summary strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #f8fbff;
+  font-size: 1.25rem;
+  font-weight: 950;
 }
 
 .document-stack,
@@ -1107,6 +1238,61 @@ textarea {
   background:
     linear-gradient(135deg, rgba(46, 229, 157, 0.08), rgba(76, 141, 255, 0.06)),
     rgba(2, 8, 23, 0.42);
+}
+
+.account-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(46, 229, 157, 0.26);
+  border-radius: 999px;
+  background: rgba(46, 229, 157, 0.12);
+  color: var(--green);
+  padding: 0.32rem 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.status-funded,
+.status-payout-received {
+  border-color: rgba(76, 141, 255, 0.32);
+  background: rgba(76, 141, 255, 0.13);
+  color: #bcd2ff;
+}
+
+.status-failed {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.account-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.account-metrics span {
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.55rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.account-metrics strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #f8fbff;
+  font-size: 0.9rem;
+  letter-spacing: -0.03em;
 }
 
 .firm-card,
@@ -1224,8 +1410,10 @@ textarea {
   .feature-grid,
   .dashboard-header,
   .insight-strip,
+  .focus-board,
   .process-grid,
   .filter-grid,
+  .portfolio-summary,
   .ranking-grid {
     grid-template-columns: 1fr;
   }
@@ -1280,8 +1468,10 @@ textarea {
 
   .metrics-grid,
   .insight-strip,
+  .focus-board,
   .form-grid,
   .filter-grid,
+  .portfolio-summary,
   .ranking-grid,
   .record,
   .document-card,
@@ -1298,6 +1488,15 @@ textarea {
   .document-card,
   .admin-card,
   .rank-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-import summary {
     align-items: flex-start;
     flex-direction: column;
   }

@@ -840,6 +840,38 @@ export default function Home() {
   const rankedAccounts = [...data.accounts].sort((a, b) => b.net - a.net);
   const topAccounts = rankedAccounts.slice(0, 3);
   const worstAccounts = [...data.accounts].sort((a, b) => a.net - b.net).slice(0, 3);
+  const challengeAccounts = data.accounts.filter((account) => account.status === "challenge");
+  const activeAccounts = data.accounts.filter((account) =>
+    ["challenge", "verification", "funded"].includes(account.status),
+  );
+  const nextAction =
+    data.accounts.length === 0
+      ? {
+          title: "Založ první challenge účet",
+          text: "Začni účtem. Teprve potom k němu ručně přidávej náklady a payouty.",
+          href: "#accounts",
+          cta: "Přidat účet",
+        }
+      : data.invoices.length === 0
+        ? {
+            title: "Přidej první náklad",
+            text: "Vyber založený účet a zapiš challenge fee nebo reset podle faktury.",
+            href: "#invoice",
+            cta: "Přidat náklad",
+          }
+        : data.payouts.length === 0
+          ? {
+              title: "Čekáš na první payout",
+              text: "Až přijde výplata, napoj ji na stejný účet. ROI se spočítá samo.",
+              href: "#payout",
+              cta: "Přidat payout",
+            }
+          : {
+              title: "Sleduj, co se vyplatí",
+              text: "Účty už mají náklady i payouty. Teď porovnávej ROI a slabé účty.",
+              href: "#history",
+              cta: "Zobrazit historii",
+            };
 
   return (
     <main className="app-shell">
@@ -860,8 +892,8 @@ export default function Home() {
             {user ? (
               <div className="nav-links" aria-label="Rychlá navigace">
                 <a href="#overview">Přehled</a>
-                <a href="#import">Import</a>
                 <a href="#accounts">Účty</a>
+                <a href="#import">Náklady / payouty</a>
                 <a href="#history">Historie</a>
               </div>
             ) : null}
@@ -1060,6 +1092,33 @@ export default function Home() {
               />
             </section>
 
+            <section className="focus-board" aria-label="Co udělat dál">
+              <article className="focus-card focus-card-main">
+                <p className="eyebrow">Další krok</p>
+                <h3>{nextAction.title}</h3>
+                <p>{nextAction.text}</p>
+                <a className="primary-button" href={nextAction.href}>
+                  {nextAction.cta}
+                </a>
+              </article>
+              <article className="focus-card">
+                <span>Aktivní účty</span>
+                <strong>{activeAccounts.length}</strong>
+                <small>{challengeAccounts.length} ve statusu Challenge</small>
+              </article>
+              <article className="focus-card">
+                <span>Doklady</span>
+                <strong>{data.documents.length}</strong>
+                <small>uložené faktury / payout potvrzení</small>
+              </article>
+              <article className="focus-card quick-links-card">
+                <span>Rychlé akce</span>
+                <a href="#accounts">+ účet</a>
+                <a href="#invoice">+ náklad</a>
+                <a href="#payout">+ payout</a>
+              </article>
+            </section>
+
             <section className="insight-strip" aria-label="Rychlé shrnutí">
               <article>
                 <span>Aktivní záznamy</span>
@@ -1240,6 +1299,20 @@ export default function Home() {
                   </div>
                   <span className="soft-pill">{filteredAccounts.length} účtů</span>
                 </div>
+                <div className="portfolio-summary">
+                  <article>
+                    <span>Challenge</span>
+                    <strong>{challengeAccounts.length}</strong>
+                  </article>
+                  <article>
+                    <span>Aktivní</span>
+                    <strong>{activeAccounts.length}</strong>
+                  </article>
+                  <article>
+                    <span>Nejlepší účet</span>
+                    <strong>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "—"}</strong>
+                  </article>
+                </div>
                 <div className="filter-grid">
                   <input
                     value={accountFilters.firm}
@@ -1282,13 +1355,28 @@ export default function Home() {
                   ) : (
                     filteredAccounts.map((account) => (
                       <article className="firm-card account-card" key={account.id}>
-                        <span>{statusLabels[account.status]}</span>
+                        <div className="account-card-head">
+                          <span className={`status-badge status-${account.status.replace(/\s+/g, "-")}`}>
+                            {statusLabels[account.status]}
+                          </span>
+                          <small>{account.market || "trh neuveden"}</small>
+                        </div>
                         <strong>{account.propFirm}</strong>
-                        <small>{account.program || "Účet neuveden"} • {account.market || "trh neuveden"}</small>
-                        <small>
-                          Náklady {formatCzk(account.costs)} • Payouty {formatCzk(account.payouts)} • ROI{" "}
-                          {account.roi.toFixed(1)} %
-                        </small>
+                        <small>{account.program || "Účet neuveden"}</small>
+                        <div className="account-metrics">
+                          <span>
+                            Náklady
+                            <strong>{formatCzk(account.costs)}</strong>
+                          </span>
+                          <span>
+                            Payouty
+                            <strong>{formatCzk(account.payouts)}</strong>
+                          </span>
+                          <span>
+                            ROI
+                            <strong>{account.roi.toFixed(1)} %</strong>
+                          </span>
+                        </div>
                       </article>
                     ))
                   )}
@@ -1305,6 +1393,10 @@ export default function Home() {
                   </div>
                   <span className="soft-pill">DB save</span>
                 </div>
+                <div className="manual-flow-card compact">
+                  <strong>Náklad zadávej ručně podle faktury.</strong>
+                  <small>Vyber účet, částku, měnu a datum. Nahraná faktura slouží jen jako uložený doklad.</small>
+                </div>
 
                 <label className="file-drop">
                   <input
@@ -1318,14 +1410,14 @@ export default function Home() {
                   </small>
                 </label>
 
-                <div className="smart-import">
-                  <div className="section-title compact">
+                <details className="smart-import">
+                  <summary>
                     <div>
                       <p className="eyebrow">Volitelný náhled</p>
                       <h3>Zkusit přečíst text bez vyplnění formuláře</h3>
                     </div>
                     <span className="soft-pill">manual only</span>
-                  </div>
+                  </summary>
                   <textarea
                     value={documentText}
                     onChange={(event) => setDocumentText(event.target.value)}
@@ -1340,7 +1432,7 @@ export default function Home() {
                   >
                     Jen zobrazit náhled
                   </button>
-                </div>
+                </details>
 
                 {recognition ? (
                   <RecognitionPanel recognition={recognition} />
@@ -1526,6 +1618,10 @@ export default function Home() {
                     <h2>Přidat payout</h2>
                   </div>
                   <span className="soft-pill">Profit split</span>
+                </div>
+                <div className="manual-flow-card compact">
+                  <strong>Payout napoj na účet, který ho vydělal.</strong>
+                  <small>Vyber stejný účet jako u challenge fee a zapiš čistou vyplacenou částku.</small>
                 </div>
 
                 <div className="form-grid">
