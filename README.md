@@ -19,25 +19,28 @@ faktur, challenge fees, payoutů a čistého výsledku.
 
 Projekt je připravený pro Vercel jako čistý Next.js projekt.
 
-Ve Vercelu přidej Postgres databázi a nastav jednu z těchto env proměnných:
+Ve Vercelu přidej Postgres databázi. Aplikaci stačí jedna databázová proměnná.
+Podporované jsou tyto názvy, takže fungují i automatické proměnné z Neon integrace:
 
 ```txt
 POSTGRES_URL=...
-```
-
-nebo:
-
-```txt
 DATABASE_URL=...
+DATABASE_URL_UNPOOLED=...
+POSTGRES_PRISMA_URL=...
+POSTGRES_URL_NON_POOLING=...
 ```
 
-Doporučené je nastavit také:
+Nastav také:
 
 ```txt
 SESSION_SECRET=dlouhy-nahodny-tajny-retezec
 ```
 
 Tabulky se vytvoří automaticky při prvním API requestu.
+
+Pokud se po deployi zobrazí hláška, že databáze chybí, zkontroluj ve Vercelu
+`Project Settings → Environment Variables`, že je aspoň jedna z databázových
+proměnných dostupná pro `Production`.
 
 ## Lokální spuštění
 

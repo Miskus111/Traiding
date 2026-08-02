@@ -8,7 +8,10 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   if (!hasDatabase()) {
     return NextResponse.json(
-      { error: "Databáze není nastavená. Ve Vercelu přidej POSTGRES_URL." },
+      {
+        error:
+          "Databáze není nastavená. Ve Vercelu přidej Neon/Postgres proměnnou a SESSION_SECRET.",
+      },
       { status: 503 },
     );
   }

@@ -18,15 +18,45 @@ const exchangeToCzk: Record<Currency, number> = {
 };
 
 const propFirmHints = [
-  "FTMO",
-  "The5ers",
-  "FundedNext",
   "Alpha Capital",
   "Apex Trader Funding",
-  "Topstep",
+  "Audacity Capital",
+  "Blue Guardian",
+  "BrightFunded",
+  "Bulenox",
+  "City Traders Imperium",
+  "DNA Funded",
   "E8 Markets",
+  "Earn2Trade",
+  "Finotive Funding",
+  "FTMO",
+  "FunderPro",
+  "Funded Engineer",
+  "Funded Trading Plus",
+  "FundedNext",
   "Funding Pips",
+  "FXIFY",
+  "Goat Funded Trader",
+  "Hola Prime",
+  "Instant Funding",
+  "Karma Prop Traders",
+  "Leeloo Trading",
+  "Lucid",
+  "Lucid Trading",
+  "Lux Trading Firm",
+  "Maven Trading",
+  "Ment Funding",
+  "MyFundedFutures",
   "MyFundedFX",
+  "OANDA Prop Trader",
+  "OneUp Trader",
+  "Take Profit Trader",
+  "The Trading Pit",
+  "The5ers",
+  "Topstep",
+  "TopTier Trader",
+  "Trade The Pool",
+  "True Forex Funds",
 ];
 
 const defaultInvoice = () => ({
@@ -150,7 +180,9 @@ export default function Home() {
           await loadData();
           setMessage("Data jsou načtená z databáze.");
         } else if (!result.databaseReady) {
-          setMessage("Databáze zatím není nastavená. Přidej POSTGRES_URL ve Vercelu.");
+          setMessage(
+            "Databáze zatím není nastavená. Ve Vercelu přidej Neon/Postgres proměnnou a SESSION_SECRET.",
+          );
         }
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Aplikaci se nepodařilo načíst.");
@@ -389,17 +421,18 @@ export default function Home() {
 
         <header className="hero-grid">
           <section className="hero-panel">
-            <p className="eyebrow">Multi-user dashboard • účty • databáze</p>
-            <h1>Tvůj trading byznys v jednom čistém přehledu.</h1>
+            <p className="eyebrow">Launch-ready finance OS • Neon • Vercel</p>
+            <h1>Profesionální dashboard pro každý funded účet.</h1>
             <p>
               Registrace, bezpečné přihlášení, oddělená data pro každého
-              tradera, náklady z prop firem, payouty, ROI a cashflow. Bez
-              tabulek rozházených po disku — konečně jeden systém.
+              tradera, challenge fees, resety, faktury, payouty, ROI a cashflow.
+              Všechno v jednom čistém systému připraveném na produkční provoz.
             </p>
             <div className="hero-stats">
-              <span>Serverové účty</span>
-              <span>Postgres databáze</span>
-              <span>Vercel ready</span>
+              <span>Multi-user účty</span>
+              <span>Neon Postgres</span>
+              <span>Prop firm katalog</span>
+              <span>Vercel launch</span>
             </div>
           </section>
 
@@ -485,8 +518,8 @@ export default function Home() {
 
                 {!databaseReady ? (
                   <p className="setup-note">
-                    Ve Vercelu přidej Postgres databázi a nastav proměnnou
-                    <code>POSTGRES_URL</code>.
+                    Ve Vercelu přidej Neon/Postgres databázi a nastav jednu z
+                    podporovaných databázových proměnných.
                   </p>
                 ) : null}
               </form>
@@ -816,16 +849,16 @@ export default function Home() {
         ) : (
           <section className="feature-grid">
             <Feature
-              title="Více uživatelů"
-              text="Každý účet má vlastní záznamy. Data se už nemíchají v jednom prohlížeči."
+              title="Účty pro více traderů"
+              text="Každý uživatel má vlastní bezpečné přihlášení a oddělené finance, faktury i payouty."
             />
             <Feature
-              title="Databáze účtů"
-              text="Uživatelé, faktury i payouty se ukládají do Postgres databáze."
+              title="Širší katalog prop firem"
+              text="Našeptávač obsahuje FTMO, The5ers, Funding Pips, Lucid, Apex, Topstep a další firmy."
             />
             <Feature
-              title="Vercel ready"
-              text="Next.js API routes, serverové cookies a produkční build pro Vercel."
+              title="Připravené na spuštění"
+              text="Next.js API routes, serverové cookies a automatické tabulky v Postgres databázi."
             />
           </section>
         )}

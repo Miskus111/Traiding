@@ -4,7 +4,13 @@ let pool: Pool | null = null;
 let schemaReady = false;
 
 function getDatabaseUrl() {
-  return process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  return (
+    process.env.POSTGRES_URL ??
+    process.env.DATABASE_URL ??
+    process.env.DATABASE_URL_UNPOOLED ??
+    process.env.POSTGRES_PRISMA_URL ??
+    process.env.POSTGRES_URL_NON_POOLING
+  );
 }
 
 export function hasDatabase() {
@@ -15,7 +21,7 @@ function getPool() {
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
     throw new Error(
-      "Missing POSTGRES_URL. Add a Postgres database in Vercel and expose POSTGRES_URL or DATABASE_URL.",
+      "Missing Postgres connection string. Add POSTGRES_URL, DATABASE_URL, DATABASE_URL_UNPOOLED, or POSTGRES_PRISMA_URL in Vercel.",
     );
   }
 
