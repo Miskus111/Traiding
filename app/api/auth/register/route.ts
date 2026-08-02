@@ -32,11 +32,21 @@ export async function POST(request: NextRequest) {
   const userId = crypto.randomUUID();
 
   try {
-    const result = await query<{ id: string; email: string; name: string }>(
-      `INSERT INTO users (id, email, name, password_hash, password_salt)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, email, name`,
-      [userId, email, name.slice(0, 120), hash, salt],
+    const roleResult = await query<{ role: "admin" | "user" }>(
+      "SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin') THEN 'admin' ELSE 'user' END AS role",
+    );
+    const role = roleResult.rows[0]?.role ?? "user";
+    const result = await query<{
+      id: string;
+      email: string;
+      name: string;
+      role: "admin" | "user";
+      blocked: boolean;
+    }>(
+      `INSERT INTO users (id, email, name, password_hash, password_salt, role)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, email, name, role, blocked`,
+      [userId, email, name.slice(0, 120), hash, salt, role],
     );
 
     const response = NextResponse.json({ user: result.rows[0] });

@@ -2,11 +2,23 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import type { AuthUser, Currency, Invoice, Payout } from "@/lib/types";
+import type {
+  AccountStatus,
+  AdminUserSummary,
+  AuthUser,
+  Currency,
+  DocumentAnalysis,
+  Invoice,
+  Payout,
+  TradingAccount,
+  TradingDocument,
+} from "@/lib/types";
 
 type UserData = {
   invoices: Invoice[];
   payouts: Payout[];
+  accounts: TradingAccount[];
+  documents: TradingDocument[];
 };
 
 type AuthMode = "login" | "register";
@@ -27,6 +39,25 @@ type RecognitionResult = {
   confidence: number;
   signals: string[];
   sourceName?: string;
+};
+
+type MonthlyReport = {
+  month: string;
+  costs: number;
+  payouts: number;
+  net: number;
+  roi: number;
+  bestAccount: { name: string; net: number; roi: number } | null;
+  worstAccount: { name: string; net: number; roi: number } | null;
+  bestPropFirm: string | null;
+  recommendation: string;
+  accounts: Array<{
+    name: string;
+    costs: number;
+    payouts: number;
+    net: number;
+    roi: number;
+  }>;
 };
 
 const exchangeToCzk: Record<Currency, number> = {
@@ -81,6 +112,7 @@ const propFirmHints = propFirmCatalog.map((firm) => firm.name);
 const defaultInvoice = () => ({
   propFirm: "",
   program: "",
+  accountId: "",
   amount: "",
   currency: "EUR" as Currency,
   date: new Date().toISOString().slice(0, 10),
@@ -91,12 +123,36 @@ const defaultInvoice = () => ({
 const defaultPayout = () => ({
   propFirm: "",
   program: "",
+  accountId: "",
   amount: "",
   currency: "EUR" as Currency,
   date: new Date().toISOString().slice(0, 10),
   split: "80",
   note: "",
 });
+
+const defaultAccount = () => ({
+  propFirm: "",
+  program: "",
+  accountSize: "",
+  accountType: "challenge",
+  market: "Forex",
+  strategy: "",
+  status: "challenge" as AccountStatus,
+  purchaseDate: new Date().toISOString().slice(0, 10),
+  endedDate: "",
+  note: "",
+});
+
+const accountStatuses: AccountStatus[] = [
+  "challenge",
+  "verification",
+  "funded",
+  "failed",
+  "payout received",
+  "refunded",
+  "archived",
+];
 
 function formatCzk(value: number) {
   return new Intl.NumberFormat("cs-CZ", {
@@ -366,9 +422,24 @@ export default function Home() {
   });
   const [invoiceDraft, setInvoiceDraft] = useState(defaultInvoice);
   const [payoutDraft, setPayoutDraft] = useState(defaultPayout);
+  const [accountDraft, setAccountDraft] = useState(defaultAccount);
+  const [accountFilters, setAccountFilters] = useState({
+    firm: "",
+    status: "",
+    strategy: "",
+    market: "",
+  });
   const [documentText, setDocumentText] = useState("");
   const [recognition, setRecognition] = useState<RecognitionResult | null>(null);
-  const [data, setData] = useState<UserData>({ invoices: [], payouts: [] });
+  const [documentAnalysis, setDocumentAnalysis] = useState<DocumentAnalysis | null>(null);
+  const [monthlyReport, setMonthlyReport] = useState<MonthlyReport | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUserSummary[]>([]);
+  const [data, setData] = useState<UserData>({
+    invoices: [],
+    payouts: [],
+    accounts: [],
+    documents: [],
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState(
@@ -400,14 +471,24 @@ export default function Home() {
     boot();
   }, []);
 
+  useEffect(() => {
+    if (user?.role === "admin") {
+      void loadAdminUsers();
+    }
+  }, [user?.role]);
+
   async function loadData() {
-    const [invoiceResult, payoutResult] = await Promise.all([
+    const [invoiceResult, payoutResult, accountResult, documentResult] = await Promise.all([
       api<{ invoices: Invoice[] }>("/api/invoices"),
       api<{ payouts: Payout[] }>("/api/payouts"),
+      api<{ accounts: TradingAccount[] }>("/api/accounts"),
+      api<{ documents: TradingDocument[] }>("/api/documents"),
     ]);
     setData({
       invoices: invoiceResult.invoices,
       payouts: payoutResult.payouts,
+      accounts: accountResult.accounts,
+      documents: documentResult.documents,
     });
   }
 
@@ -493,7 +574,9 @@ export default function Home() {
   async function logout() {
     await api<{ ok: true }>("/api/auth/logout", { method: "POST" });
     setUser(null);
-    setData({ invoices: [], payouts: [] });
+    setData({ invoices: [], payouts: [], accounts: [], documents: [] });
+    setAdminUsers([]);
+    setMonthlyReport(null);
     setMessage("Odhlášeno. Můžeš se přihlásit pod jiným účtem.");
   }
 
@@ -544,6 +627,180 @@ export default function Home() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function saveAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+    try {
+      const result = await api<{ account: TradingAccount }>("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify(accountDraft),
+      });
+      setData((current) => ({
+        ...current,
+        accounts: [result.account, ...current.accounts],
+      }));
+      setAccountDraft(defaultAccount());
+      setMessage("Prop účet je uložený a připravený na párování nákladů a payoutů.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Účet se nepodařilo uložit.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function uploadDocument(file: File) {
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      if (invoiceDraft.accountId || payoutDraft.accountId) {
+        formData.set("accountId", invoiceDraft.accountId || payoutDraft.accountId);
+      }
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "Upload se nepovedl.");
+      const document = payload.document as TradingDocument;
+      setData((current) => ({
+        ...current,
+        documents: [document, ...current.documents],
+      }));
+      setInvoiceDraft((current) => ({ ...current, fileName: document.fileName }));
+      setMessage("Dokument je uložený ve Vercel Blob. Teď můžeš spustit AI analýzu.");
+      return document;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Dokument se nepodařilo nahrát.");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function analyzeDocument(documentId: string) {
+    setIsSaving(true);
+    try {
+      const result = await api<{
+        document?: TradingDocument;
+        analysis: DocumentAnalysis;
+        warning?: string;
+      }>(`/api/documents/${documentId}/analyze`, { method: "POST" });
+      setDocumentAnalysis(result.analysis);
+      if (result.document) {
+        setData((current) => ({
+          ...current,
+          documents: current.documents.map((document) =>
+            document.id === result.document?.id ? result.document : document,
+          ),
+        }));
+      }
+      applyDocumentAnalysis(result.analysis);
+      setMessage(result.warning ?? "AI analýza je hotová. Zkontroluj data a ulož záznam.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "AI analýza se nepodařila.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function removeDocument(documentId: string) {
+    setIsSaving(true);
+    try {
+      await api<{ ok: true }>(`/api/documents/${documentId}`, { method: "DELETE" });
+      setData((current) => ({
+        ...current,
+        documents: current.documents.filter((document) => document.id !== documentId),
+      }));
+      setMessage("Dokument je smazaný z Blobu i databáze.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Dokument se nepodařilo smazat.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function applyDocumentAnalysis(analysis: DocumentAnalysis, target = analysis.recordType) {
+    const matchedAccount = data.accounts.find(
+      (account) =>
+        account.propFirm.toLowerCase() === analysis.propFirm.toLowerCase() &&
+        account.program.toLowerCase() === analysis.program.toLowerCase(),
+    );
+    const base = {
+      accountId: matchedAccount?.id ?? "",
+      propFirm: analysis.propFirm,
+      program: analysis.program,
+      amount: analysis.amount > 0 ? String(analysis.amount) : "",
+      currency: analysis.currency,
+      date: analysis.date,
+      note: analysis.explanation,
+    };
+
+    if (target === "payout") {
+      setPayoutDraft((current) => ({
+        ...current,
+        ...base,
+        split: String(analysis.split || current.split),
+      }));
+    } else {
+      setInvoiceDraft((current) => ({
+        ...current,
+        ...base,
+        note: analysis.feeType || analysis.explanation,
+      }));
+    }
+
+    if (!matchedAccount && analysis.propFirm) {
+      setAccountDraft((current) => ({
+        ...current,
+        propFirm: analysis.propFirm,
+        program: analysis.program,
+        accountSize: analysis.accountSize,
+        accountType: analysis.accountType || current.accountType,
+        market: analysis.market || current.market,
+        strategy: analysis.strategy || current.strategy,
+        status: analysis.suggestedStatus || current.status,
+      }));
+    }
+  }
+
+  async function loadMonthlyReport() {
+    const month = new Date().toISOString().slice(0, 7);
+    try {
+      const result = await api<{ report: MonthlyReport }>(
+        `/api/reports/monthly?month=${month}`,
+      );
+      setMonthlyReport(result.report);
+      setMessage(`Měsíční report pro ${month} je načtený.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Report se nepodařilo načíst.");
+    }
+  }
+
+  async function loadAdminUsers() {
+    if (user?.role !== "admin") return;
+    try {
+      const result = await api<{ users: AdminUserSummary[] }>("/api/admin/users");
+      setAdminUsers(result.users);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Admin panel se nepodařilo načíst.");
+    }
+  }
+
+  async function updateAdminUser(summary: AdminUserSummary, patch: Partial<AdminUserSummary>) {
+    const result = await api<{ user: AdminUserSummary }>("/api/admin/users", {
+      method: "PATCH",
+      body: JSON.stringify({
+        id: summary.id,
+        role: patch.role ?? summary.role,
+        blocked: patch.blocked ?? summary.blocked,
+      }),
+    });
+    setAdminUsers((current) =>
+      current.map((item) => (item.id === result.user.id ? result.user : item)),
+    );
   }
 
   async function removeInvoice(id: string) {
@@ -611,6 +868,7 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    void uploadDocument(file);
     setInvoiceDraft((current) => ({ ...current, fileName: file.name }));
     if (file.type.includes("text") || file.name.match(/\.(txt|csv|pdf)$/i)) {
       const reader = new FileReader();
@@ -644,6 +902,20 @@ export default function Home() {
     1,
     ...summary.monthly.map(([, values]) => values.costs + values.payouts),
   );
+  const filteredAccounts = data.accounts.filter((account) => {
+    return (
+      (!accountFilters.firm ||
+        account.propFirm.toLowerCase().includes(accountFilters.firm.toLowerCase())) &&
+      (!accountFilters.status || account.status === accountFilters.status) &&
+      (!accountFilters.strategy ||
+        account.strategy.toLowerCase().includes(accountFilters.strategy.toLowerCase())) &&
+      (!accountFilters.market ||
+        account.market.toLowerCase().includes(accountFilters.market.toLowerCase()))
+    );
+  });
+  const rankedAccounts = [...data.accounts].sort((a, b) => b.net - a.net);
+  const topAccounts = rankedAccounts.slice(0, 3);
+  const worstAccounts = [...data.accounts].sort((a, b) => a.net - b.net).slice(0, 3);
 
   return (
     <main className="app-shell">
@@ -882,6 +1154,171 @@ export default function Home() {
               </article>
             </section>
 
+            <section id="accounts" className="workspace-grid account-workspace">
+              <form className="panel form-panel" onSubmit={saveAccount}>
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Prop accounts</p>
+                    <h2>Přidat / sledovat účet</h2>
+                  </div>
+                  <span className="soft-pill">status flow</span>
+                </div>
+                <div className="form-grid">
+                  <label>
+                    Prop firma
+                    <input
+                      list="prop-firms"
+                      value={accountDraft.propFirm}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, propFirm: event.target.value })
+                      }
+                      placeholder="Lucid Trading"
+                    />
+                  </label>
+                  <label>
+                    Program / účet
+                    <input
+                      value={accountDraft.program}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, program: event.target.value })
+                      }
+                      placeholder="Account 100K"
+                    />
+                  </label>
+                  <label>
+                    Velikost účtu
+                    <input
+                      value={accountDraft.accountSize}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, accountSize: event.target.value })
+                      }
+                      placeholder="100K"
+                    />
+                  </label>
+                  <label>
+                    Typ účtu
+                    <input
+                      value={accountDraft.accountType}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, accountType: event.target.value })
+                      }
+                      placeholder="challenge, instant funding..."
+                    />
+                  </label>
+                  <label>
+                    Trh
+                    <input
+                      value={accountDraft.market}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, market: event.target.value })
+                      }
+                      placeholder="Forex, Futures..."
+                    />
+                  </label>
+                  <label>
+                    Strategie
+                    <input
+                      value={accountDraft.strategy}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, strategy: event.target.value })
+                      }
+                      placeholder="London open, scalping..."
+                    />
+                  </label>
+                  <label>
+                    Status
+                    <select
+                      value={accountDraft.status}
+                      onChange={(event) =>
+                        setAccountDraft({
+                          ...accountDraft,
+                          status: event.target.value as AccountStatus,
+                        })
+                      }
+                    >
+                      {accountStatuses.map((status) => (
+                        <option key={status}>{status}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Datum nákupu
+                    <input
+                      type="date"
+                      value={accountDraft.purchaseDate}
+                      onChange={(event) =>
+                        setAccountDraft({ ...accountDraft, purchaseDate: event.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+                <button className="primary-button" disabled={isSaving} type="submit">
+                  Uložit účet
+                </button>
+              </form>
+
+              <section className="panel">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Account portfolio</p>
+                    <h2>Filtry a statusy</h2>
+                  </div>
+                  <span className="soft-pill">{filteredAccounts.length} účtů</span>
+                </div>
+                <div className="filter-grid">
+                  <input
+                    value={accountFilters.firm}
+                    onChange={(event) =>
+                      setAccountFilters({ ...accountFilters, firm: event.target.value })
+                    }
+                    placeholder="Filtrovat firmu"
+                  />
+                  <select
+                    value={accountFilters.status}
+                    onChange={(event) =>
+                      setAccountFilters({ ...accountFilters, status: event.target.value })
+                    }
+                  >
+                    <option value="">Všechny statusy</option>
+                    {accountStatuses.map((status) => (
+                      <option key={status}>{status}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={accountFilters.market}
+                    onChange={(event) =>
+                      setAccountFilters({ ...accountFilters, market: event.target.value })
+                    }
+                    placeholder="Trh"
+                  />
+                  <input
+                    value={accountFilters.strategy}
+                    onChange={(event) =>
+                      setAccountFilters({ ...accountFilters, strategy: event.target.value })
+                    }
+                    placeholder="Strategie"
+                  />
+                </div>
+                <div className="account-grid">
+                  {filteredAccounts.length === 0 ? (
+                    <p className="muted">Založ první účet nebo uprav filtr.</p>
+                  ) : (
+                    filteredAccounts.map((account) => (
+                      <article className="firm-card account-card" key={account.id}>
+                        <span>{account.status}</span>
+                        <strong>{account.propFirm}</strong>
+                        <small>{account.program || "Účet neuveden"} • {account.market || "trh neuveden"}</small>
+                        <small>
+                          Náklady {formatCzk(account.costs)} • Payouty {formatCzk(account.payouts)} • ROI{" "}
+                          {account.roi.toFixed(1)} %
+                        </small>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            </section>
+
             <section id="import" className="workspace-grid">
               <form id="invoice" className="panel form-panel" onSubmit={addInvoice}>
                 <div className="section-title">
@@ -900,8 +1337,8 @@ export default function Home() {
                   />
                   <strong>Nahrát fakturu</strong>
                   <small>
-                    Teď ukládám název souboru a metadata. Pro reálné PDF úložiště
-                    přidáme Vercel Blob.
+                    PDF, screenshot nebo CSV se uloží do Vercel Blob a potom ho můžeš
+                    poslat na AI rozpoznání.
                   </small>
                 </label>
 
@@ -937,7 +1374,112 @@ export default function Home() {
                   />
                 ) : null}
 
+                <div className="document-stack">
+                  <div className="section-title compact">
+                    <div>
+                      <p className="eyebrow">Blob dokumenty</p>
+                      <h3>Nahrané faktury a payout potvrzení</h3>
+                    </div>
+                    <span className="soft-pill">{data.documents.length} souborů</span>
+                  </div>
+                  {data.documents.length === 0 ? (
+                    <p className="muted">Nahraj PDF nebo screenshot a potom spusť AI analýzu.</p>
+                  ) : (
+                    data.documents.slice(0, 4).map((document) => (
+                      <article className="document-card" key={document.id}>
+                        <div>
+                          <strong>{document.fileName}</strong>
+                          <small>
+                            {document.aiStatus} • {(document.fileSize / 1024).toFixed(0)} KB
+                          </small>
+                        </div>
+                        <div className="document-actions">
+                          <a className="ghost-button" href={document.fileUrl} target="_blank" rel="noreferrer">
+                            Otevřít
+                          </a>
+                          <button
+                            className="primary-button"
+                            disabled={isSaving}
+                            type="button"
+                            onClick={() => analyzeDocument(document.id)}
+                          >
+                            AI analyze
+                          </button>
+                          <button
+                            className="ghost-button danger"
+                            disabled={isSaving}
+                            type="button"
+                            onClick={() => removeDocument(document.id)}
+                          >
+                            Smazat
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+
+                {documentAnalysis ? (
+                  <div className="ai-result">
+                    <div className="recognition-head">
+                      <div>
+                        <p className="eyebrow">AI výsledek</p>
+                        <h3>{documentAnalysis.recordType}</h3>
+                      </div>
+                      <span className="confidence">{documentAnalysis.confidence}% jistota</span>
+                    </div>
+                    <div className="recognition-grid">
+                      <span>Firma</span>
+                      <strong>{documentAnalysis.propFirm || "nenalezeno"}</strong>
+                      <span>Účet</span>
+                      <strong>{documentAnalysis.program || "nenalezeno"}</strong>
+                      <span>Částka</span>
+                      <strong>{formatMoney(documentAnalysis.amount, documentAnalysis.currency)}</strong>
+                      <span>Status</span>
+                      <strong>{documentAnalysis.suggestedStatus || "bez návrhu"}</strong>
+                    </div>
+                    <div className="recognition-actions">
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => applyDocumentAnalysis(documentAnalysis, "cost")}
+                      >
+                        Použít jako náklad
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => applyDocumentAnalysis(documentAnalysis, "payout")}
+                      >
+                        Použít jako payout
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="form-grid">
+                  <label>
+                    Připojit k účtu
+                    <select
+                      value={invoiceDraft.accountId}
+                      onChange={(event) => {
+                        const account = data.accounts.find((item) => item.id === event.target.value);
+                        setInvoiceDraft({
+                          ...invoiceDraft,
+                          accountId: event.target.value,
+                          propFirm: account?.propFirm ?? invoiceDraft.propFirm,
+                          program: account?.program ?? invoiceDraft.program,
+                        });
+                      }}
+                    >
+                      <option value="">Bez napojení</option>
+                      {data.accounts.map((account) => (
+                        <option value={account.id} key={account.id}>
+                          {account.propFirm} • {account.program || "Účet neuveden"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Prop firma
                     <input
@@ -1028,6 +1570,28 @@ export default function Home() {
                 </div>
 
                 <div className="form-grid">
+                  <label>
+                    Připojit k účtu
+                    <select
+                      value={payoutDraft.accountId}
+                      onChange={(event) => {
+                        const account = data.accounts.find((item) => item.id === event.target.value);
+                        setPayoutDraft({
+                          ...payoutDraft,
+                          accountId: event.target.value,
+                          propFirm: account?.propFirm ?? payoutDraft.propFirm,
+                          program: account?.program ?? payoutDraft.program,
+                        });
+                      }}
+                    >
+                      <option value="">Bez napojení</option>
+                      {data.accounts.map((account) => (
+                        <option value={account.id} key={account.id}>
+                          {account.propFirm} • {account.program || "Účet neuveden"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Prop firma
                     <input
@@ -1189,7 +1753,90 @@ export default function Home() {
               </div>
             </section>
 
-            <section id="accounts" className="panel account-panel">
+            <section className="analytics-grid">
+              <div className="panel">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Co se vyplatí</p>
+                    <h2>ROI ranking účtů</h2>
+                  </div>
+                  <span className="soft-pill">best / worst</span>
+                </div>
+                <div className="ranking-grid">
+                  <div>
+                    <h3>Nejlepší účty</h3>
+                    {topAccounts.length === 0 ? (
+                      <p className="muted">Zatím nejsou účty s výsledkem.</p>
+                    ) : (
+                      topAccounts.map((account) => (
+                        <article className="rank-row" key={account.id}>
+                          <span>{account.propFirm} • {account.program || "Účet"}</span>
+                          <strong>{formatCzk(account.net)}</strong>
+                          <small>ROI {account.roi.toFixed(1)} %</small>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                  <div>
+                    <h3>Největší ztráty</h3>
+                    {worstAccounts.length === 0 ? (
+                      <p className="muted">Zatím nejsou účty s výsledkem.</p>
+                    ) : (
+                      worstAccounts.map((account) => (
+                        <article className="rank-row warning" key={account.id}>
+                          <span>{account.propFirm} • {account.program || "Účet"}</span>
+                          <strong>{formatCzk(account.net)}</strong>
+                          <small>ROI {account.roi.toFixed(1)} %</small>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Měsíční report</p>
+                    <h2>Automatické vyhodnocení</h2>
+                  </div>
+                  <button className="ghost-button" type="button" onClick={loadMonthlyReport}>
+                    Načíst report
+                  </button>
+                </div>
+                {monthlyReport ? (
+                  <div className="report-card">
+                    <div className="preview-metric">
+                      <span>{monthlyReport.month}</span>
+                      <strong>{formatCzk(monthlyReport.net)}</strong>
+                    </div>
+                    <div className="recognition-grid">
+                      <span>Náklady</span>
+                      <strong>{formatCzk(monthlyReport.costs)}</strong>
+                      <span>Payouty</span>
+                      <strong>{formatCzk(monthlyReport.payouts)}</strong>
+                      <span>ROI</span>
+                      <strong>{monthlyReport.roi.toFixed(1)} %</strong>
+                      <span>Top firma</span>
+                      <strong>{monthlyReport.bestPropFirm ?? "není"}</strong>
+                    </div>
+                    <p className="muted">{monthlyReport.recommendation}</p>
+                    <div className="recognition-actions">
+                      <button className="ghost-button" type="button" onClick={() => window.print()}>
+                        Print / PDF
+                      </button>
+                      <button className="ghost-button" type="button" onClick={exportJson}>
+                        Export JSON
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="muted">Načti report aktuálního měsíce a dostaneš stručné doporučení.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="panel account-panel">
               <div className="section-title">
                 <div>
                   <p className="eyebrow">Podle účtu</p>
@@ -1243,6 +1890,62 @@ export default function Home() {
                 onRemove={removePayout}
               />
             </section>
+
+            {user.role === "admin" ? (
+              <section className="panel admin-panel">
+                <div className="section-title">
+                  <div>
+                    <p className="eyebrow">Admin panel</p>
+                    <h2>Uživatelé a využití systému</h2>
+                  </div>
+                  <button className="ghost-button" type="button" onClick={loadAdminUsers}>
+                    Obnovit
+                  </button>
+                </div>
+                <div className="admin-grid">
+                  {adminUsers.length === 0 ? (
+                    <p className="muted">Načítám uživatele nebo zatím nejsou data.</p>
+                  ) : (
+                    adminUsers.map((summary) => (
+                      <article className="admin-card" key={summary.id}>
+                        <div>
+                          <strong>{summary.name}</strong>
+                          <span>{summary.email}</span>
+                          <small>
+                            {summary.accounts} účtů • {summary.invoices} nákladů •{" "}
+                            {summary.payouts} payoutů • {summary.documents} dokumentů
+                          </small>
+                        </div>
+                        <div className="admin-actions">
+                          <select
+                            value={summary.role}
+                            onChange={(event) =>
+                              void updateAdminUser(summary, {
+                                role: event.target.value as AdminUserSummary["role"],
+                              })
+                            }
+                          >
+                            <option value="user">user</option>
+                            <option value="admin">admin</option>
+                          </select>
+                          <button
+                            className={summary.blocked ? "primary-button" : "ghost-button"}
+                            type="button"
+                            onClick={() =>
+                              void updateAdminUser(summary, {
+                                blocked: !summary.blocked,
+                              })
+                            }
+                          >
+                            {summary.blocked ? "Odblokovat" : "Zablokovat"}
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            ) : null}
           </>
         ) : (
           <section className="feature-grid">

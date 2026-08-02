@@ -558,6 +558,12 @@ textarea {
   padding: 0.8rem 1rem;
 }
 
+.ghost-button.danger {
+  border-color: rgba(248, 113, 113, 0.36);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+}
+
 .primary-button:hover,
 .ghost-button:hover {
   transform: translateY(-1px);
@@ -900,6 +906,9 @@ textarea {
 .chart,
 .firm-grid,
 .account-grid,
+.filter-grid,
+.ranking-grid,
+.admin-grid,
 .records {
   display: grid;
   gap: 0.85rem;
@@ -943,6 +952,93 @@ textarea {
 .firm-grid,
 .account-grid {
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.filter-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.document-stack,
+.ai-result,
+.report-card {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    rgba(2, 8, 23, 0.34);
+  padding: 1rem;
+}
+
+.document-card,
+.rank-row,
+.admin-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.15rem;
+  background: rgba(2, 8, 23, 0.42);
+  padding: 0.85rem;
+}
+
+.document-card strong,
+.admin-card strong,
+.rank-row strong {
+  display: block;
+}
+
+.document-card small,
+.admin-card span,
+.admin-card small,
+.rank-row span,
+.rank-row small {
+  color: var(--muted);
+}
+
+.document-actions,
+.admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.document-actions .primary-button,
+.document-actions .ghost-button,
+.admin-actions .primary-button,
+.admin-actions .ghost-button {
+  padding: 0.62rem 0.85rem;
+}
+
+.ranking-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ranking-grid h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.rank-row {
+  margin-bottom: 0.65rem;
+}
+
+.rank-row.warning strong {
+  color: var(--pink);
+}
+
+.admin-panel {
+  margin-top: 1rem;
+}
+
+.admin-grid {
+  grid-template-columns: 1fr;
 }
 
 .account-panel {
@@ -1069,7 +1165,9 @@ textarea {
   .records-grid,
   .feature-grid,
   .dashboard-header,
-  .insight-strip {
+  .insight-strip,
+  .filter-grid,
+  .ranking-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1124,7 +1222,11 @@ textarea {
   .metrics-grid,
   .insight-strip,
   .form-grid,
+  .filter-grid,
+  .ranking-grid,
   .record,
+  .document-card,
+  .admin-card,
   .chart-row,
   .recognition-grid {
     grid-template-columns: 1fr;
@@ -1132,5 +1234,12 @@ textarea {
 
   .record-side {
     text-align: left;
+  }
+
+  .document-card,
+  .admin-card,
+  .rank-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

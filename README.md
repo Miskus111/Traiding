@@ -13,6 +13,10 @@ faktur, challenge fees, payoutů a čistého výsledku.
 - přidávání payoutů,
 - smart import textu z faktury nebo payout e-mailu,
 - rozpoznání prop firmy, programu/účtu, částky, měny, data a typu záznamu,
+- ukládání PDF/screenshotů faktur přes Vercel Blob,
+- AI analýza dokumentů přes OpenAI Responses API,
+- prop accounty se statusy, trhem a strategií,
+- admin panel pro správu uživatelů,
 - souhrn nákladů, payoutů, čistého výsledku a ROI,
 - přehled podle konkrétního účtu / programu,
 - přehled podle měsíců a prop firem,
@@ -37,6 +41,9 @@ Nastav také:
 
 ```txt
 SESSION_SECRET=dlouhy-nahodny-tajny-retezec
+BLOB_READ_WRITE_TOKEN=...
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-5.6-luna
 ```
 
 Tabulky se vytvoří automaticky při prvním API requestu.

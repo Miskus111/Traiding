@@ -1,6 +1,15 @@
-import type { Currency } from "./types";
+import type { AccountStatus, Currency } from "./types";
 
 export const currencies: Currency[] = ["CZK", "EUR", "USD"];
+export const accountStatuses: AccountStatus[] = [
+  "challenge",
+  "verification",
+  "funded",
+  "failed",
+  "payout received",
+  "refunded",
+  "archived",
+];
 
 export function requiredText(value: unknown, maxLength = 160) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -25,4 +34,15 @@ export function dateValue(value: unknown) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
     ? value
     : new Date().toISOString().slice(0, 10);
+}
+
+export function optionalDate(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+export function accountStatusValue(value: unknown): AccountStatus {
+  return accountStatuses.includes(value as AccountStatus)
+    ? (value as AccountStatus)
+    : "challenge";
 }

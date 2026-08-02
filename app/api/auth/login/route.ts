@@ -8,6 +8,8 @@ type LoginRow = {
   id: string;
   email: string;
   name: string;
+  role: "admin" | "user";
+  blocked: boolean;
   password_hash: string;
   password_salt: string;
 };
@@ -28,10 +30,17 @@ export async function POST(request: NextRequest) {
   const password = String(body?.password ?? "");
 
   const result = await query<LoginRow>(
-    "SELECT id, email, name, password_hash, password_salt FROM users WHERE email = $1 LIMIT 1",
+    "SELECT id, email, name, role, blocked, password_hash, password_salt FROM users WHERE email = $1 LIMIT 1",
     [email],
   );
   const user = result.rows[0];
+
+  if (user?.blocked) {
+    return NextResponse.json(
+      { error: "Účet je zablokovaný. Kontaktuj administrátora." },
+      { status: 403 },
+    );
+  }
 
   if (!user || !verifyPassword(password, user.password_hash, user.password_salt)) {
     return NextResponse.json(
@@ -41,7 +50,13 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      blocked: user.blocked,
+    },
   });
   setSessionCookie(response, user.id);
   return response;

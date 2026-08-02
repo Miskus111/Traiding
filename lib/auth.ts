@@ -86,11 +86,12 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   if (!payload) return null;
 
   const result = await query<AuthUser>(
-    "SELECT id, email, name FROM users WHERE id = $1 LIMIT 1",
+    "SELECT id, email, name, role, blocked FROM users WHERE id = $1 LIMIT 1",
     [payload.userId],
   );
 
-  return result.rows[0] ?? null;
+  const user = result.rows[0];
+  return user && !user.blocked ? user : null;
 }
 
 export function setSessionCookie(response: NextResponse, userId: string) {
@@ -116,4 +117,8 @@ export function clearSessionCookie(response: NextResponse) {
 
 export function unauthorized() {
   return NextResponse.json({ error: "Nejdřív se přihlas." }, { status: 401 });
+}
+
+export function forbidden() {
+  return NextResponse.json({ error: "Na tuhle akci nemáš oprávnění." }, { status: 403 });
 }

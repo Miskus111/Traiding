@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 
 type PayoutRow = {
   id: string;
+  account_id: string | null;
   prop_firm: string;
   program: string;
   amount: string;
@@ -27,6 +28,7 @@ type PayoutRow = {
 function mapPayout(row: PayoutRow): Payout {
   return {
     id: row.id,
+    accountId: row.account_id,
     propFirm: row.prop_firm,
     program: row.program,
     amount: Number(row.amount),
@@ -42,7 +44,7 @@ export async function GET() {
   if (!user) return unauthorized();
 
   const result = await query<PayoutRow>(
-    `SELECT id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note
+    `SELECT id, account_id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note
      FROM payouts
      WHERE user_id = $1
      ORDER BY payout_date DESC, created_at DESC`,
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const propFirm = requiredText(body?.propFirm);
   const program = requiredText(body?.program);
+  const accountId = optionalText(body?.accountId, 80);
   const amount = numberValue(body?.amount);
   const split = Math.max(0, Math.min(100, Math.round(numberValue(body?.split))));
 
@@ -69,14 +72,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (accountId) {
+    const account = await query<{ id: string }>(
+      "SELECT id FROM accounts WHERE id = $1 AND user_id = $2 LIMIT 1",
+      [accountId, user.id],
+    );
+    if (!account.rows[0]) {
+      return NextResponse.json(
+        { error: "Vybraný účet neexistuje nebo ti nepatří." },
+        { status: 400 },
+      );
+    }
+  }
+
   const result = await query<PayoutRow>(
     `INSERT INTO payouts
-       (id, user_id, prop_firm, program, amount, currency, payout_date, split, note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note`,
+       (id, user_id, account_id, prop_firm, program, amount, currency, payout_date, split, note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING id, account_id, prop_firm, program, amount::text AS amount, currency, payout_date::text AS date, split, note`,
     [
       crypto.randomUUID(),
       user.id,
+      accountId,
       propFirm,
       program,
       amount,
