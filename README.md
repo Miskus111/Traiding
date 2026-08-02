@@ -29,7 +29,7 @@ Pro produkční verzi bude potřeba doplnit:
 
 ## Spuštění
 
-Je potřeba Node.js `>=22.13.0`.
+Je potřeba Node.js `22.x`.
 
 ```bash
 npm install
