@@ -654,13 +654,21 @@ export default function Home() {
       <section className="page-wrap">
         <nav className="topbar">
           <div className="brand">
-            <span className="brand-mark">T</span>
+            <span className="brand-mark">TC</span>
             <div>
               <p>Trader Cost Hub</p>
-              <small>Prop trading finance OS</small>
+              <small>Modern prop trading command center</small>
             </div>
           </div>
           <div className="topbar-actions">
+            {user ? (
+              <div className="nav-links" aria-label="Rychlá navigace">
+                <a href="#overview">Přehled</a>
+                <a href="#import">Import</a>
+                <a href="#accounts">Účty</a>
+                <a href="#history">Historie</a>
+              </div>
+            ) : null}
             <span className={databaseReady ? "live-pill" : "live-pill warning"}>
               {databaseReady ? "DB online" : "DB missing"}
             </span>
@@ -677,18 +685,44 @@ export default function Home() {
 
         <header className="hero-grid">
           <section className="hero-panel">
-            <p className="eyebrow">Launch-ready finance OS • Neon • Vercel</p>
-            <h1>Profesionální dashboard pro každý funded účet.</h1>
-            <p>
-              Registrace, bezpečné přihlášení, oddělená data pro každého
-              tradera, challenge fees, resety, faktury, payouty, ROI a cashflow.
-              Všechno v jednom čistém systému připraveném na produkční provoz.
-            </p>
-            <div className="hero-stats">
-              <span>Multi-user účty</span>
-              <span>Neon Postgres</span>
-              <span>Prop firm katalog</span>
-              <span>Vercel launch</span>
+            <div className="hero-copy">
+              <p className="eyebrow">Launch-ready finance OS • Neon • Vercel</p>
+              <h1>Profesionální dashboard pro funded účty.</h1>
+              <p>
+                Sleduj challenge fees, resety, faktury, payouty a čistý výsledek
+                podle prop firmy i konkrétního účtu. Jeden moderní systém místo
+                chaosu v tabulkách, e-mailech a poznámkách.
+              </p>
+              <div className="hero-stats">
+                <span>Smart import</span>
+                <span>Account P/L</span>
+                <span>Multi-user</span>
+                <span>Vercel ready</span>
+              </div>
+            </div>
+
+            <div className="hero-preview" aria-hidden="true">
+              <div className="preview-topline">
+                <span>Live overview</span>
+                <strong>+24.8%</strong>
+              </div>
+              <div className="preview-metric">
+                <span>Net result</span>
+                <strong>42 850 Kč</strong>
+              </div>
+              <div className="preview-bars">
+                <span style={{ height: "42%" }} />
+                <span style={{ height: "68%" }} />
+                <span style={{ height: "54%" }} />
+                <span style={{ height: "84%" }} />
+                <span style={{ height: "72%" }} />
+              </div>
+              <div className="preview-list">
+                <span>Lucid Trading • Account 100K</span>
+                <b>+18 400 Kč</b>
+                <span>FTMO • Challenge 50K</span>
+                <b>-3 250 Kč</b>
+              </div>
             </div>
           </section>
 
@@ -796,6 +830,25 @@ export default function Home() {
 
         {user ? (
           <>
+            <section id="overview" className="dashboard-header">
+              <div>
+                <p className="eyebrow">Command center</p>
+                <h2>Finanční cockpit pro prop trading</h2>
+                <p>
+                  Nejdřív vidíš výsledek, potom detaily. Náklady, payouty a
+                  účty jsou oddělené tak, aby bylo hned jasné, co funguje.
+                </p>
+              </div>
+              <div className="header-actions">
+                <a className="ghost-button" href="#import">
+                  Přidat záznam
+                </a>
+                <a className="primary-button" href="#accounts">
+                  Zobrazit účty
+                </a>
+              </div>
+            </section>
+
             <section className="metrics-grid">
               <Metric label="Náklady na prop firmy" value={formatCzk(summary.costs)} />
               <Metric label="Payouty celkem" value={formatCzk(summary.payouts)} />
@@ -811,7 +864,25 @@ export default function Home() {
               />
             </section>
 
-            <section className="workspace-grid">
+            <section className="insight-strip" aria-label="Rychlé shrnutí">
+              <article>
+                <span>Aktivní záznamy</span>
+                <strong>{data.invoices.length + data.payouts.length}</strong>
+                <small>náklady + payouty uložené v databázi</small>
+              </article>
+              <article>
+                <span>Prop firmy</span>
+                <strong>{summary.byFirm.length}</strong>
+                <small>zdroje s uloženým nákladem nebo payoutem</small>
+              </article>
+              <article>
+                <span>Sledované účty</span>
+                <strong>{summary.byAccount.length}</strong>
+                <small>párování podle firma + program</small>
+              </article>
+            </section>
+
+            <section id="import" className="workspace-grid">
               <form id="invoice" className="panel form-panel" onSubmit={addInvoice}>
                 <div className="section-title">
                   <div>
@@ -1118,7 +1189,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="panel account-panel">
+            <section id="accounts" className="panel account-panel">
               <div className="section-title">
                 <div>
                   <p className="eyebrow">Podle účtu</p>
@@ -1144,7 +1215,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="records-grid">
+            <section id="history" className="records-grid">
               <RecordsTable
                 title="Náklady"
                 empty="Zatím žádné uložené faktury."
