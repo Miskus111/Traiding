@@ -1116,7 +1116,74 @@ export default function Home() {
                 <a href="#accounts">+ účet</a>
                 <a href="#invoice">+ náklad</a>
                 <a href="#payout">+ payout</a>
+                <button type="button" onClick={() => window.print()}>
+                  PDF na nástěnku
+                </button>
               </article>
+            </section>
+
+            <section className="print-board" aria-label="Motivační PDF report">
+              <div className="print-hero">
+                <p>Trader Cost Hub • nástěnkový report</p>
+                <h1>{summary.net >= 0 ? "Drž systém. Výsledek roste." : "Zpomal. Ochraň kapitál."}</h1>
+                <span>{new Date().toLocaleDateString("cs-CZ")}</span>
+              </div>
+
+              <div className="print-score">
+                <span>Čistý výsledek</span>
+                <strong>{formatCzk(summary.net)}</strong>
+                <small>ROI {summary.roi.toFixed(1)} % po všech nákladech</small>
+              </div>
+
+              <div className="print-metrics">
+                <article>
+                  <span>Náklady</span>
+                  <strong>{formatCzk(summary.costs)}</strong>
+                </article>
+                <article>
+                  <span>Payouty</span>
+                  <strong>{formatCzk(summary.payouts)}</strong>
+                </article>
+                <article>
+                  <span>Challenge účty</span>
+                  <strong>{challengeAccounts.length}</strong>
+                </article>
+                <article>
+                  <span>Aktivní účty</span>
+                  <strong>{activeAccounts.length}</strong>
+                </article>
+              </div>
+
+              <div className="print-grid">
+                <article>
+                  <span>Nejlepší účet</span>
+                  <strong>
+                    {topAccounts[0]
+                      ? `${topAccounts[0].propFirm} • ${topAccounts[0].program || "Účet"}`
+                      : "Zatím bez výsledku"}
+                  </strong>
+                  <small>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "Přidej první náklad a payout."}</small>
+                </article>
+                <article>
+                  <span>Top firma</span>
+                  <strong>{monthlyReport?.bestPropFirm ?? summary.byFirm[0]?.[0] ?? "Zatím není"}</strong>
+                  <small>{monthlyReport?.recommendation ?? "Sleduj jen účty, které mají jasný plán a řízený risk."}</small>
+                </article>
+              </div>
+
+              <div className="print-rules">
+                <h2>Pravidla na každý trading den</h2>
+                <ol>
+                  <li>Nejdřív chraň účet, potom řeš payout.</li>
+                  <li>Každý challenge fee musí mít plán, ne emoci.</li>
+                  <li>Co neměříš, to tě stojí peníze.</li>
+                  <li>Malé konzistentní kroky porazí náhodný velký zisk.</li>
+                </ol>
+              </div>
+
+              <blockquote>
+                “Každý účet je byznys. Měř náklady, drž disciplínu, vybírej payouty.”
+              </blockquote>
             </section>
 
             <section className="insight-strip" aria-label="Rychlé shrnutí">
@@ -1878,7 +1945,7 @@ export default function Home() {
                     <p className="muted">{monthlyReport.recommendation}</p>
                     <div className="recognition-actions">
                       <button className="ghost-button" type="button" onClick={() => window.print()}>
-                        Print / PDF
+                        Vytisknout na nástěnku
                       </button>
                       <button className="ghost-button" type="button" onClick={exportJson}>
                         Export JSON
