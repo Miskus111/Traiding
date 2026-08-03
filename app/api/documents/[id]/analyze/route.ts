@@ -101,7 +101,7 @@ function fallbackAnalysis(document: DocumentRow): DocumentAnalysis {
     strategy: "",
     feeType: "",
     amount: 0,
-    currency: "EUR",
+    currency: "USD",
     date: new Date().toISOString().slice(0, 10),
     split: 80,
     suggestedStatus: payout ? "payout received" : "",

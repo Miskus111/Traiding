@@ -679,30 +679,6 @@ textarea {
   line-height: 1.65;
 }
 
-.display-currency {
-  display: inline-flex;
-  gap: 0.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.055);
-  padding: 0.28rem;
-}
-
-.display-currency button {
-  border-radius: 999px;
-  background: transparent;
-  color: #cbd5e1;
-  cursor: pointer;
-  padding: 0.5rem 0.65rem;
-  font-size: 0.76rem;
-  font-weight: 900;
-}
-
-.display-currency button.active {
-  background: rgba(46, 229, 157, 0.16);
-  color: #b7ffe0;
-}
-
 .action-center,
 .customer-grid {
   margin-top: 1rem;
@@ -2018,15 +1994,6 @@ textarea {
     flex-direction: column;
   }
 
-  .display-currency,
-  .display-currency button,
-  .header-actions .display-currency {
-    width: 100%;
-  }
-
-  .display-currency {
-    justify-content: space-between;
-  }
 }
 
 @media print {

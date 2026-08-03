@@ -1,6 +1,6 @@
 import type { AccountStatus, Currency } from "./types";
 
-export const currencies: Currency[] = ["CZK", "EUR", "USD"];
+export const currencies: Currency[] = ["USD"];
 export const accountStatuses: AccountStatus[] = [
   "challenge",
   "verification",
@@ -26,7 +26,7 @@ export function numberValue(value: unknown) {
 }
 
 export function currencyValue(value: unknown): Currency {
-  return currencies.includes(value as Currency) ? (value as Currency) : "EUR";
+  return currencies.includes(value as Currency) ? (value as Currency) : "USD";
 }
 
 export function dateValue(value: unknown) {

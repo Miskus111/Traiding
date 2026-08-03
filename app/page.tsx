@@ -24,7 +24,6 @@ type UserData = {
 
 type AuthMode = "login" | "register";
 type RecognitionKind = "cost" | "payout" | "unknown";
-type DisplayCurrency = Currency;
 type AccountHealth = "Healthy" | "Watch" | "At risk";
 
 type DashboardInsight = {
@@ -134,7 +133,7 @@ const defaultInvoice = () => ({
   program: "",
   accountId: "",
   amount: "",
-  currency: "EUR" as Currency,
+  currency: "USD" as Currency,
   date: new Date().toISOString().slice(0, 10),
   fileName: "",
   note: "",
@@ -145,7 +144,7 @@ const defaultPayout = () => ({
   program: "",
   accountId: "",
   amount: "",
-  currency: "EUR" as Currency,
+  currency: "USD" as Currency,
   date: new Date().toISOString().slice(0, 10),
   split: "80",
   note: "",
@@ -233,19 +232,11 @@ const demoMetrics = {
   account: demoAccounts[0].name,
 };
 
-function formatCzk(value: number) {
+function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "CZK",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatMoney(value: number, currency: Currency) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: currency === "CZK" ? 0 : 2,
+    currency: "USD",
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -253,12 +244,12 @@ function toCzk(value: number, currency: Currency) {
   return value * exchangeToCzk[currency];
 }
 
-function fromCzk(value: number, currency: DisplayCurrency) {
-  return value / exchangeToCzk[currency];
+function toUsd(value: number, currency: Currency) {
+  return toCzk(value, currency) / exchangeToCzk.USD;
 }
 
-function formatDisplayMoney(valueInCzk: number, currency: DisplayCurrency) {
-  return formatMoney(fromCzk(valueInCzk, currency), currency);
+function formatUsdFromCzk(valueInCzk: number) {
+  return formatUsd(valueInCzk / exchangeToCzk.USD);
 }
 
 function getAccountHealth(account: TradingAccount): AccountHealth {
@@ -463,7 +454,7 @@ function parseTradingDocument(text: string, sourceName?: string): RecognitionRes
   const program = detectProgram(clean);
   const signals = [
     propFirm ? `Prop firm: ${propFirm}` : "",
-    detectedAmount ? `Amount: ${formatMoney(Number(detectedAmount), detectedCurrency)}` : "",
+    detectedAmount ? `Amount: ${formatUsd(toUsd(Number(detectedAmount), detectedCurrency))}` : "",
     date ? `Date: ${date}` : "",
     program ? `Program: ${program}` : "",
     kind === "payout" ? "Type: payout" : "",
@@ -520,11 +511,6 @@ export default function Home() {
     email: "",
     password: "",
   });
-  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(() => {
-    if (typeof window === "undefined") return "CZK";
-    const saved = window.localStorage.getItem("trader-cost-hub-display-currency");
-    return saved === "CZK" || saved === "EUR" || saved === "USD" ? saved : "CZK";
-  });
   const [invoiceDraft, setInvoiceDraft] = useState(defaultInvoice);
   const [payoutDraft, setPayoutDraft] = useState(defaultPayout);
   const [accountDraft, setAccountDraft] = useState(defaultAccount);
@@ -575,10 +561,6 @@ export default function Home() {
     }
     boot();
   }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("trader-cost-hub-display-currency", displayCurrency);
-  }, [displayCurrency]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -697,6 +679,7 @@ export default function Home() {
         method: "POST",
         body: JSON.stringify({
           ...invoiceDraft,
+          currency: "USD",
           amount: Number(invoiceDraft.amount),
         }),
       });
@@ -721,6 +704,7 @@ export default function Home() {
         method: "POST",
         body: JSON.stringify({
           ...payoutDraft,
+          currency: "USD",
           amount: Number(payoutDraft.amount),
           split: Number(payoutDraft.split),
         }),
@@ -931,7 +915,7 @@ export default function Home() {
   const activeAccounts = data.accounts.filter((account) =>
     ["challenge", "verification", "funded"].includes(account.status),
   );
-  const display = (valueInCzk: number) => formatDisplayMoney(valueInCzk, displayCurrency);
+  const display = formatUsdFromCzk;
   const breakEvenNeeded = Math.max(summary.costs - summary.payouts, 0);
   const accountsWithoutPayout = data.accounts.filter(
     (account) => account.costs > 0 && account.payouts === 0,
@@ -1078,7 +1062,7 @@ export default function Home() {
               </div>
               <div className="preview-metric">
                 <span>Net result</span>
-                <strong>{formatCzk(42850)}</strong>
+                <strong>{formatUsdFromCzk(42850)}</strong>
               </div>
               <div className="preview-bars">
                 <span style={{ height: "42%" }} />
@@ -1089,9 +1073,9 @@ export default function Home() {
               </div>
               <div className="preview-list">
                 <span>Lucid Trading - Account 100K</span>
-                <b>{formatCzk(18400)}</b>
+                <b>{formatUsdFromCzk(18400)}</b>
                 <span>FTMO - Challenge 50K</span>
-                <b>{formatCzk(-3250)}</b>
+                <b>{formatUsdFromCzk(-3250)}</b>
               </div>
             </div>
           </section>
@@ -1222,10 +1206,6 @@ export default function Home() {
                 </p>
               </div>
               <div className="header-actions">
-                <DisplayCurrencySwitch
-                  value={displayCurrency}
-                  onChange={setDisplayCurrency}
-                />
                 <a className="ghost-button" href="#import">
                   Add record
                 </a>
@@ -1634,11 +1614,11 @@ export default function Home() {
                     <p className="eyebrow">Costs and challenge fees</p>
                     <h2>Add cost</h2>
                   </div>
-                  <span className="soft-pill">DB save</span>
+                  <span className="soft-pill">USD only</span>
                 </div>
                 <div className="manual-flow-card compact">
                   <strong>Enter every cost manually from the real invoice.</strong>
-                  <small>Select the account, amount, currency and date. Uploaded files are stored as proof only.</small>
+                  <small>Select the account, USD amount and date. Uploaded files are stored as proof only.</small>
                 </div>
 
                 <label className="file-drop">
@@ -1741,7 +1721,7 @@ export default function Home() {
                       <span>Account</span>
                       <strong>{documentAnalysis.program || "not found"}</strong>
                       <span>Amount</span>
-                      <strong>{formatMoney(documentAnalysis.amount, documentAnalysis.currency)}</strong>
+                      <strong>{formatUsd(toUsd(documentAnalysis.amount, documentAnalysis.currency))}</strong>
                       <span>Status</span>
                       <strong>{documentAnalysis.suggestedStatus || "no suggestion"}</strong>
                     </div>
@@ -1816,12 +1796,6 @@ export default function Home() {
                       }
                     />
                   </label>
-                  <CurrencySelect
-                    value={invoiceDraft.currency}
-                    onChange={(currency) =>
-                      setInvoiceDraft({ ...invoiceDraft, currency })
-                    }
-                  />
                   <label>
                     Date
                     <input
@@ -1866,7 +1840,7 @@ export default function Home() {
                     <p className="eyebrow">Prop firm payouts</p>
                     <h2>Add payout</h2>
                   </div>
-                  <span className="soft-pill">Profit split</span>
+                  <span className="soft-pill">USD only</span>
                 </div>
                 <div className="manual-flow-card compact">
                   <strong>Attach the payout to the account that earned it.</strong>
@@ -1938,12 +1912,6 @@ export default function Home() {
                       }
                     />
                   </label>
-                  <CurrencySelect
-                    value={payoutDraft.currency}
-                    onChange={(currency) =>
-                      setPayoutDraft({ ...payoutDraft, currency })
-                    }
-                  />
                   <label>
                     Profit split %
                     <input
@@ -2169,7 +2137,7 @@ export default function Home() {
                   id: invoice.id,
                   name: invoice.propFirm,
                   detail: invoice.program || invoice.fileName || "Invoice",
-                  amount: formatMoney(invoice.amount, invoice.currency),
+                  amount: formatUsd(toUsd(invoice.amount, invoice.currency)),
                   date: invoice.date,
                   note: invoice.note,
                 }))}
@@ -2182,7 +2150,7 @@ export default function Home() {
                   id: payout.id,
                   name: payout.propFirm,
                   detail: `${payout.program || "Account missing"} - ${payout.split}% split`,
-                  amount: formatMoney(payout.amount, payout.currency),
+                  amount: formatUsd(toUsd(payout.amount, payout.currency)),
                   date: payout.date,
                   note: payout.note,
                 }))}
@@ -2265,7 +2233,7 @@ export default function Home() {
 
             <HowItWorksSection />
 
-            <DemoDashboard displayCurrency={displayCurrency} />
+            <DemoDashboard />
           </>
         )}
 
@@ -2280,7 +2248,6 @@ export default function Home() {
                 : "No account result yet"
               : demoMetrics.account
           }
-          displayCurrency={displayCurrency}
         />
 
         <DealsSection />
@@ -2307,28 +2274,6 @@ export default function Home() {
   );
 }
 
-function CurrencySelect({
-  value,
-  onChange,
-}: {
-  value: Currency;
-  onChange: (currency: Currency) => void;
-}) {
-  return (
-    <label>
-      Currency
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as Currency)}
-      >
-        <option>CZK</option>
-        <option>EUR</option>
-        <option>USD</option>
-      </select>
-    </label>
-  );
-}
-
 function Metric({
   label,
   value,
@@ -2343,29 +2288,6 @@ function Metric({
       <span>{label}</span>
       <strong className={positive === false ? "negative" : ""}>{value}</strong>
     </article>
-  );
-}
-
-function DisplayCurrencySwitch({
-  value,
-  onChange,
-}: {
-  value: DisplayCurrency;
-  onChange: (currency: DisplayCurrency) => void;
-}) {
-  return (
-    <div className="display-currency" aria-label="Display currency">
-      {(["CZK", "EUR", "USD"] as DisplayCurrency[]).map((currency) => (
-        <button
-          className={value === currency ? "active" : ""}
-          key={currency}
-          type="button"
-          onClick={() => onChange(currency)}
-        >
-          {currency}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -2505,8 +2427,8 @@ function HowItWorksSection() {
   );
 }
 
-function DemoDashboard({ displayCurrency }: { displayCurrency: DisplayCurrency }) {
-  const display = (value: number) => formatDisplayMoney(value, displayCurrency);
+function DemoDashboard() {
+  const display = formatUsdFromCzk;
 
   return (
     <section id="demo" className="demo-dashboard" aria-label="Public demo dashboard">
@@ -2576,16 +2498,14 @@ function CreatorSnapshot({
   payouts,
   net,
   bestAccount,
-  displayCurrency,
 }: {
   costs: number;
   payouts: number;
   net: number;
   bestAccount: string;
-  displayCurrency: DisplayCurrency;
 }) {
   const rule = creatorRules[Math.abs(Math.round(net)) % creatorRules.length];
-  const display = (value: number) => formatDisplayMoney(value, displayCurrency);
+  const display = formatUsdFromCzk;
 
   return (
     <section className="creator-snapshot" aria-label="Creator snapshot">
@@ -2731,7 +2651,7 @@ function RecognitionPanel({ recognition }: { recognition: RecognitionResult }) {
         <span>Amount</span>
         <strong>
           {recognition.amount
-            ? formatMoney(Number(recognition.amount), recognition.currency)
+            ? formatUsd(toUsd(Number(recognition.amount), recognition.currency))
             : "not found"}
         </strong>
         <span>Date</span>
