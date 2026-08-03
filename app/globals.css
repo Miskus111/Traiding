@@ -128,6 +128,8 @@ code {
 .panel,
 .metric-card,
 .feature-card,
+.trust-block,
+.action-center,
 .demo-dashboard,
 .creator-snapshot,
 .deals-section,
@@ -651,7 +653,176 @@ textarea {
 }
 
 .metrics-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.trust-block {
+  display: grid;
+  grid-template-columns: 0.6fr 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+  border-radius: 1.85rem;
+  padding: clamp(1.1rem, 2.5vw, 1.7rem);
+}
+
+.trust-block h2 {
+  margin: 0;
+  color: #f8fbff;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  letter-spacing: -0.055em;
+}
+
+.trust-block p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.display-currency {
+  display: inline-flex;
+  gap: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0.28rem;
+}
+
+.display-currency button {
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.display-currency button.active {
+  background: rgba(46, 229, 157, 0.16);
+  color: #b7ffe0;
+}
+
+.action-center,
+.customer-grid {
+  margin-top: 1rem;
+}
+
+.action-center {
+  border-radius: 1.85rem;
+  padding: clamp(1.1rem, 2.4vw, 1.65rem);
+}
+
+.action-grid,
+.customer-grid,
+.attention-list,
+.checklist {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.action-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.customer-grid {
+  grid-template-columns: 0.9fr 1.1fr;
+}
+
+.action-card,
+.check-item,
+.attention-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+    rgba(2, 8, 23, 0.34);
+  color: #f8fbff;
+  padding: 1rem;
+  text-decoration: none;
+}
+
+.action-card {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.action-card.done,
+.check-item.done {
+  border-color: rgba(46, 229, 157, 0.24);
+  background:
+    linear-gradient(135deg, rgba(46, 229, 157, 0.13), rgba(255, 255, 255, 0.035)),
+    rgba(2, 8, 23, 0.34);
+}
+
+.action-card span,
+.attention-card span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.action-card strong,
+.check-item strong,
+.attention-card strong {
+  display: block;
+  color: #f8fbff;
+  font-size: 1.12rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.action-card small,
+.attention-card small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.check-item span {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-weight: 950;
+}
+
+.check-item.done span {
+  background: rgba(46, 229, 157, 0.2);
+  color: #b7ffe0;
+}
+
+.attention-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.attention-card strong {
+  margin: 0.28rem 0;
+  font-size: 1.65rem;
+}
+
+.attention-good {
+  border-color: rgba(46, 229, 157, 0.24);
+}
+
+.attention-watch {
+  border-color: rgba(255, 180, 92, 0.34);
+}
+
+.attention-risk {
+  border-color: rgba(248, 113, 113, 0.36);
 }
 
 .focus-board {
@@ -933,7 +1104,7 @@ textarea {
 }
 
 .smart-import summary::after {
-  content: "Rozbalit";
+  content: "Expand";
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--muted);
@@ -947,7 +1118,62 @@ textarea {
 }
 
 .smart-import[open] summary::after {
-  content: "Sbalit";
+  content: "Collapse";
+}
+
+.collapsible-panel {
+  padding: 0;
+}
+
+.collapsible-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 1.15rem;
+}
+
+.collapsible-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.collapsible-panel > summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.collapsible-panel > summary strong {
+  color: #f8fbff;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+}
+
+.collapsible-panel > summary::after {
+  content: "Expand";
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  padding: 0.42rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.collapsible-panel[open] > summary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 1rem;
+}
+
+.collapsible-panel[open] > summary::after {
+  content: "Collapse";
+}
+
+.collapsible-panel > form {
+  padding: 0 1.15rem 1.15rem;
 }
 
 .recognition-payout {
@@ -1386,6 +1612,31 @@ textarea {
   font-weight: 850;
 }
 
+.deal-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0.9rem 0;
+}
+
+.deal-comparison span {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--muted);
+  padding: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.deal-comparison strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #f8fbff;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .deal-notes {
   display: grid;
   gap: 0.75rem;
@@ -1479,6 +1730,36 @@ textarea {
   padding: 0.32rem 0.58rem;
   font-size: 0.72rem;
   font-weight: 950;
+}
+
+.health-badge {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dbeafe;
+  padding: 0.32rem 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.health-healthy {
+  border-color: rgba(46, 229, 157, 0.3);
+  background: rgba(46, 229, 157, 0.13);
+  color: #b7ffe0;
+}
+
+.health-watch {
+  border-color: rgba(255, 180, 92, 0.34);
+  background: rgba(255, 180, 92, 0.12);
+  color: #ffe0b8;
+}
+
+.health-at-risk {
+  border-color: rgba(248, 113, 113, 0.36);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
 }
 
 .status-funded,
@@ -1634,9 +1915,14 @@ textarea {
   .insight-strip,
   .focus-board,
   .process-grid,
+  .trust-block,
+  .action-grid,
+  .customer-grid,
+  .attention-list,
   .demo-layout,
   .creator-snapshot,
   .deals-grid,
+  .deal-comparison,
   .filter-grid,
   .portfolio-summary,
   .ranking-grid {
@@ -1696,6 +1982,10 @@ textarea {
   .focus-board,
   .demo-metric-grid,
   .snapshot-grid,
+  .action-grid,
+  .customer-grid,
+  .attention-list,
+  .deal-comparison,
   .form-grid,
   .filter-grid,
   .portfolio-summary,
@@ -1726,6 +2016,16 @@ textarea {
   .smart-import summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .display-currency,
+  .display-currency button,
+  .header-actions .display-currency {
+    width: 100%;
+  }
+
+  .display-currency {
+    justify-content: space-between;
   }
 }
 

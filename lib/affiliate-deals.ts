@@ -8,6 +8,10 @@ export type AffiliateDeal = {
   payoutNote: string;
   riskNote: string;
   personalVerdict: string;
+  bestFor: string;
+  trackingTip: string;
+  riskReminder: string;
+  sortOrder: number;
   featured: boolean;
 };
 
@@ -22,6 +26,10 @@ export const affiliateDeals: AffiliateDeal[] = [
     payoutNote: "Track payout proof and withdrawal timing before scaling.",
     riskNote: "Check daily loss, max loss and consistency rules before buying.",
     personalVerdict: "Good candidate to track if you want a clean challenge workflow.",
+    bestFor: "Traders who want a straightforward challenge-style account to compare.",
+    trackingTip: "Track the first fee, any reset and the first payout separately.",
+    riskReminder: "Read loss limits and payout timing before using any promo code.",
+    sortOrder: 10,
     featured: true,
   },
   {
@@ -34,6 +42,10 @@ export const affiliateDeals: AffiliateDeal[] = [
     payoutNote: "Use the dashboard to compare challenge cost vs confirmed payouts.",
     riskNote: "Rules are strict; treat the fee like a business expense.",
     personalVerdict: "Best for traders who want established rules and clear tracking.",
+    bestFor: "Rule-focused traders who want a familiar evaluation model.",
+    trackingTip: "Compare challenge cost against confirmed payouts, not marketing claims.",
+    riskReminder: "Passing a challenge does not guarantee future payouts or profits.",
+    sortOrder: 20,
     featured: true,
   },
   {
@@ -46,6 +58,10 @@ export const affiliateDeals: AffiliateDeal[] = [
     payoutNote: "Track every payout and refund separately for real ROI.",
     riskNote: "Compare account type, time limits and scaling rules before buying.",
     personalVerdict: "Useful to compare against instant-funding style accounts.",
+    bestFor: "Traders comparing classic challenges with scaling or bootcamp models.",
+    trackingTip: "Separate initial fees, upgrades and refunds so ROI stays honest.",
+    riskReminder: "Different account types can have very different rule pressure.",
+    sortOrder: 30,
     featured: false,
   },
 ];

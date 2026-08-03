@@ -24,6 +24,25 @@ type UserData = {
 
 type AuthMode = "login" | "register";
 type RecognitionKind = "cost" | "payout" | "unknown";
+type DisplayCurrency = Currency;
+type AccountHealth = "Healthy" | "Watch" | "At risk";
+
+type DashboardInsight = {
+  title: string;
+  value: string;
+  text: string;
+  tone: "good" | "watch" | "risk";
+};
+
+type DemoAccount = {
+  name: string;
+  status: AccountStatus;
+  costs: number;
+  payouts: number;
+  net: number;
+  roi: number;
+  note: string;
+};
 
 type PropFirmHint = {
   name: string;
@@ -171,12 +190,47 @@ const creatorRules = [
   "Your prop trading is a business - measure it like one.",
 ];
 
+const demoAccounts: DemoAccount[] = [
+  {
+    name: "Lucid Trading - 100K Challenge",
+    status: "challenge",
+    costs: 9700,
+    payouts: 28875,
+    net: 19175,
+    roi: 197.6,
+    note: "Best demo result",
+  },
+  {
+    name: "FTMO - 50K Challenge",
+    status: "failed",
+    costs: 3250,
+    payouts: 0,
+    net: -3250,
+    roi: -100,
+    note: "Costs need review",
+  },
+  {
+    name: "Topstep - Futures Evaluation",
+    status: "funded",
+    costs: 4550,
+    payouts: 11200,
+    net: 6650,
+    roi: 146.2,
+    note: "Funded demo account",
+  },
+];
+
 const demoMetrics = {
-  costs: 9700,
-  payouts: 28875,
-  net: 19175,
-  roi: 197.6,
-  account: "Lucid Trading - 100K Challenge",
+  costs: demoAccounts.reduce((sum, account) => sum + account.costs, 0),
+  payouts: demoAccounts.reduce((sum, account) => sum + account.payouts, 0),
+  net: demoAccounts.reduce((sum, account) => sum + account.net, 0),
+  roi:
+    demoAccounts.reduce((sum, account) => sum + account.costs, 0) > 0
+      ? (demoAccounts.reduce((sum, account) => sum + account.net, 0) /
+          demoAccounts.reduce((sum, account) => sum + account.costs, 0)) *
+        100
+      : 0,
+  account: demoAccounts[0].name,
 };
 
 function formatCzk(value: number) {
@@ -197,6 +251,28 @@ function formatMoney(value: number, currency: Currency) {
 
 function toCzk(value: number, currency: Currency) {
   return value * exchangeToCzk[currency];
+}
+
+function fromCzk(value: number, currency: DisplayCurrency) {
+  return value / exchangeToCzk[currency];
+}
+
+function formatDisplayMoney(valueInCzk: number, currency: DisplayCurrency) {
+  return formatMoney(fromCzk(valueInCzk, currency), currency);
+}
+
+function getAccountHealth(account: TradingAccount): AccountHealth {
+  if (account.status === "failed" || account.status === "archived") return "At risk";
+  if (account.net < 0 || account.roi < 0) return "At risk";
+  if (account.costs > 0 && account.payouts === 0) return "Watch";
+  if (account.status === "funded" || account.status === "payout received" || account.net > 0) {
+    return "Healthy";
+  }
+  return "Watch";
+}
+
+function healthClass(health: AccountHealth) {
+  return health.toLowerCase().replace(/\s+/g, "-");
 }
 
 function monthLabel(date: string) {
@@ -444,6 +520,11 @@ export default function Home() {
     email: "",
     password: "",
   });
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(() => {
+    if (typeof window === "undefined") return "CZK";
+    const saved = window.localStorage.getItem("trader-cost-hub-display-currency");
+    return saved === "CZK" || saved === "EUR" || saved === "USD" ? saved : "CZK";
+  });
   const [invoiceDraft, setInvoiceDraft] = useState(defaultInvoice);
   const [payoutDraft, setPayoutDraft] = useState(defaultPayout);
   const [accountDraft, setAccountDraft] = useState(defaultAccount);
@@ -494,6 +575,10 @@ export default function Home() {
     }
     boot();
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("trader-cost-hub-display-currency", displayCurrency);
+  }, [displayCurrency]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -846,6 +931,45 @@ export default function Home() {
   const activeAccounts = data.accounts.filter((account) =>
     ["challenge", "verification", "funded"].includes(account.status),
   );
+  const display = (valueInCzk: number) => formatDisplayMoney(valueInCzk, displayCurrency);
+  const breakEvenNeeded = Math.max(summary.costs - summary.payouts, 0);
+  const accountsWithoutPayout = data.accounts.filter(
+    (account) => account.costs > 0 && account.payouts === 0,
+  );
+  const failedAccounts = data.accounts.filter((account) => account.status === "failed");
+  const negativeAccounts = data.accounts.filter((account) => account.net < 0);
+  const attentionInsights: DashboardInsight[] =
+    failedAccounts.length === 0 &&
+    accountsWithoutPayout.length === 0 &&
+    negativeAccounts.length === 0
+      ? [
+          {
+            title: "All clear",
+            value: "0",
+            text: "No failed, unpaid or negative accounts need attention right now.",
+            tone: "good",
+          },
+        ]
+      : [
+          {
+            title: "Failed accounts",
+            value: String(failedAccounts.length),
+            text: "Archive or review the rules before buying another challenge.",
+            tone: failedAccounts.length ? "risk" : "good",
+          },
+          {
+            title: "Costs without payout",
+            value: String(accountsWithoutPayout.length),
+            text: "These accounts have fees recorded but no confirmed payout yet.",
+            tone: accountsWithoutPayout.length ? "watch" : "good",
+          },
+          {
+            title: "Negative ROI",
+            value: String(negativeAccounts.length),
+            text: "Watch accounts where tracked costs are larger than payouts.",
+            tone: negativeAccounts.length ? "risk" : "good",
+          },
+        ];
   const nextAction =
     data.accounts.length === 0
       ? {
@@ -892,14 +1016,22 @@ export default function Home() {
           </div>
           <div className="topbar-actions">
             {user ? (
-              <div className="nav-links" aria-label="Quick navigation">
+              <div className="nav-links" aria-label="Dashboard navigation">
                 <a href="#overview">Overview</a>
                 <a href="#accounts">Accounts</a>
                 <a href="#import">Costs & Payouts</a>
                 <a href="#deals">Deals</a>
                 <a href="#history">History</a>
               </div>
-            ) : null}
+            ) : (
+              <div className="nav-links" aria-label="Site navigation">
+                <a href="#product">Product</a>
+                <a href="#demo">Demo</a>
+                <a href="#how-it-works">How it works</a>
+                <a href="#deals">Deals</a>
+                <a href="#auth">Sign in</a>
+              </div>
+            )}
             <span className={databaseReady ? "live-pill" : "live-pill warning"}>
               {databaseReady ? "DB online" : "DB missing"}
             </span>
@@ -914,14 +1046,14 @@ export default function Home() {
           </div>
         </nav>
 
-        <header className="hero-grid">
+        <header id="product" className="hero-grid">
           <section className="hero-panel">
             <div className="hero-copy">
               <p className="eyebrow">Prop trading is a business. Track it like one.</p>
               <h1>Stop guessing if prop trading is profitable.</h1>
               <p>
-                Track every challenge fee, reset, refund and payout — then see
-                which prop firms actually pay off.
+                Before buying another challenge, know what you already spent,
+                what actually paid out and how much break-even is still needed.
               </p>
               <div className="hero-ctas">
                 <a className="primary-button" href={user ? "#accounts" : "#auth"}>
@@ -1066,6 +1198,18 @@ export default function Home() {
           </section>
         </header>
 
+        <section className="trust-block" aria-label="Before buying another challenge">
+          <div>
+            <p className="eyebrow">Before buying another challenge</p>
+            <h2>Check your real ROI first.</h2>
+          </div>
+          <p>
+            Most traders remember payouts and forget fees, resets and failed
+            accounts. Trader Cost Hub keeps the business math visible before you
+            click another promo code.
+          </p>
+        </section>
+
         {user ? (
           <>
             <section id="overview" className="dashboard-header">
@@ -1078,6 +1222,10 @@ export default function Home() {
                 </p>
               </div>
               <div className="header-actions">
+                <DisplayCurrencySwitch
+                  value={displayCurrency}
+                  onChange={setDisplayCurrency}
+                />
                 <a className="ghost-button" href="#import">
                   Add record
                 </a>
@@ -1088,11 +1236,11 @@ export default function Home() {
             </section>
 
             <section className="metrics-grid">
-              <Metric label="Total Costs" value={formatCzk(summary.costs)} />
-              <Metric label="Total Payouts" value={formatCzk(summary.payouts)} />
+              <Metric label="Total Costs" value={display(summary.costs)} />
+              <Metric label="Total Payouts" value={display(summary.payouts)} />
               <Metric
                 label="Net Result"
-                value={formatCzk(summary.net)}
+                value={display(summary.net)}
                 positive={summary.net >= 0}
               />
               <Metric
@@ -1100,6 +1248,26 @@ export default function Home() {
                 value={`${summary.roi.toFixed(1)} %`}
                 positive={summary.roi >= 0}
               />
+              <Metric
+                label="Break-even needed"
+                value={display(breakEvenNeeded)}
+                positive={breakEvenNeeded === 0}
+              />
+            </section>
+
+            <ActionCenter
+              hasAccount={data.accounts.length > 0}
+              hasCost={data.invoices.length > 0}
+              hasPayout={data.payouts.length > 0}
+            />
+
+            <section className="customer-grid">
+              <OnboardingChecklist
+                hasAccount={data.accounts.length > 0}
+                hasCost={data.invoices.length > 0}
+                hasPayout={data.payouts.length > 0}
+              />
+              <NeedsAttention insights={attentionInsights} />
             </section>
 
             <section className="focus-board" aria-label="Next best action">
@@ -1141,18 +1309,18 @@ export default function Home() {
 
               <div className="print-score">
                 <span>Net Result</span>
-                <strong>{formatCzk(summary.net)}</strong>
+                <strong>{display(summary.net)}</strong>
                 <small>ROI {summary.roi.toFixed(1)} % after all tracked costs</small>
               </div>
 
               <div className="print-metrics">
                 <article>
                   <span>Costs</span>
-                  <strong>{formatCzk(summary.costs)}</strong>
+                  <strong>{display(summary.costs)}</strong>
                 </article>
                 <article>
                   <span>Payouts</span>
-                  <strong>{formatCzk(summary.payouts)}</strong>
+                  <strong>{display(summary.payouts)}</strong>
                 </article>
                 <article>
                   <span>Challenge accounts</span>
@@ -1172,12 +1340,12 @@ export default function Home() {
                       ? `${topAccounts[0].propFirm} - ${topAccounts[0].program || "Account"}`
                       : "No result yet"}
                   </strong>
-                  <small>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "Add your first cost and payout."}</small>
+                  <small>{topAccounts[0] ? display(topAccounts[0].net) : "Add your first cost and payout."}</small>
                 </article>
                 <article>
-                  <span>Top firm</span>
-                  <strong>{monthlyReport?.bestPropFirm ?? summary.byFirm[0]?.[0] ?? "Not enough data"}</strong>
-                  <small>{monthlyReport?.recommendation ?? "Track only accounts with a clear plan and controlled risk."}</small>
+                  <span>Next action</span>
+                  <strong>{nextAction.title}</strong>
+                  <small>{nextAction.text}</small>
                 </article>
               </div>
 
@@ -1214,31 +1382,15 @@ export default function Home() {
               </article>
             </section>
 
-            <section className="process-grid" aria-label="How it works">
-              <article>
-                <span>01</span>
-                <strong>Create a prop account</strong>
-                <small>Choose the prop firm, account size, market, strategy and keep the status as Challenge.</small>
-              </article>
-              <article>
-                <span>02</span>
-                <strong>Add costs manually</strong>
-                <small>Select the account and record challenge fees, resets or refunds from real amounts.</small>
-              </article>
-              <article>
-                <span>03</span>
-                <strong>Add payouts</strong>
-                <small>Attach every payout to the same account and the dashboard calculates ROI.</small>
-              </article>
-              <article>
-                <span>04</span>
-                <strong>Compare real ROI</strong>
-                <small>See which firms, markets and strategies are worth more attention.</small>
-              </article>
-            </section>
+            <HowItWorksSection />
 
             <section id="accounts" className="workspace-grid account-workspace">
-              <form className="panel form-panel" onSubmit={saveAccount}>
+              <details className="panel form-panel collapsible-panel" open>
+                <summary>
+                  <span>Account setup</span>
+                  <strong>Create or edit a prop account</strong>
+                </summary>
+                <form onSubmit={saveAccount}>
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Prop accounts</p>
@@ -1371,7 +1523,8 @@ export default function Home() {
                 <button className="primary-button" disabled={isSaving} type="submit">
                   Save challenge account
                 </button>
-              </form>
+                </form>
+              </details>
 
               <section className="panel">
                 <div className="section-title">
@@ -1392,7 +1545,7 @@ export default function Home() {
                   </article>
                   <article>
                     <span>Best account</span>
-                    <strong>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "-"}</strong>
+                    <strong>{topAccounts[0] ? display(topAccounts[0].net) : "-"}</strong>
                   </article>
                 </div>
                 <div className="filter-grid">
@@ -1441,6 +1594,9 @@ export default function Home() {
                           <span className={`status-badge status-${account.status.replace(/\s+/g, "-")}`}>
                             {statusLabels[account.status]}
                           </span>
+                          <span className={`health-badge health-${healthClass(getAccountHealth(account))}`}>
+                            {getAccountHealth(account)}
+                          </span>
                           <small>{account.market || "market missing"}</small>
                         </div>
                         <strong>{account.propFirm}</strong>
@@ -1448,11 +1604,11 @@ export default function Home() {
                         <div className="account-metrics">
                           <span>
                             Costs
-                            <strong>{formatCzk(account.costs)}</strong>
+                            <strong>{display(account.costs)}</strong>
                           </span>
                           <span>
                             Payouts
-                            <strong>{formatCzk(account.payouts)}</strong>
+                            <strong>{display(account.payouts)}</strong>
                           </span>
                           <span>
                             ROI
@@ -1467,7 +1623,12 @@ export default function Home() {
             </section>
 
             <section id="import" className="workspace-grid">
-              <form id="invoice" className="panel form-panel" onSubmit={addInvoice}>
+              <details id="invoice" className="panel form-panel collapsible-panel">
+                <summary>
+                  <span>Cost entry</span>
+                  <strong>Add challenge fee, reset or refund</strong>
+                </summary>
+                <form onSubmit={addInvoice}>
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Costs and challenge fees</p>
@@ -1691,9 +1852,15 @@ export default function Home() {
                 <button className="primary-button" disabled={isSaving} type="submit">
                   Save cost
                 </button>
-              </form>
+                </form>
+              </details>
 
-              <form id="payout" className="panel form-panel" onSubmit={addPayout}>
+              <details id="payout" className="panel form-panel collapsible-panel">
+                <summary>
+                  <span>Payout entry</span>
+                  <strong>Add confirmed payout</strong>
+                </summary>
+                <form onSubmit={addPayout}>
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Prop firm payouts</p>
@@ -1822,7 +1989,8 @@ export default function Home() {
                 <button className="primary-button" disabled={isSaving} type="submit">
                   Save payout
                 </button>
-              </form>
+                </form>
+              </details>
             </section>
 
             <section className="analytics-grid">
@@ -1854,7 +2022,7 @@ export default function Home() {
                             }}
                           />
                         </div>
-                        <strong>{formatCzk(values.payouts - values.costs)}</strong>
+                        <strong>{display(values.payouts - values.costs)}</strong>
                       </div>
                     ))
                   )}
@@ -1875,10 +2043,10 @@ export default function Home() {
                     summary.byFirm.map(([firm, values]) => (
                       <article className="firm-card" key={firm}>
                         <span>{firm}</span>
-                        <strong>{formatCzk(values.payouts - values.costs)}</strong>
+                        <strong>{display(values.payouts - values.costs)}</strong>
                         <small>
-                          Costs {formatCzk(values.costs)} - Payouts{" "}
-                          {formatCzk(values.payouts)}
+                          Costs {display(values.costs)} - Payouts{" "}
+                          {display(values.payouts)}
                         </small>
                       </article>
                     ))
@@ -1905,7 +2073,7 @@ export default function Home() {
                       topAccounts.map((account) => (
                         <article className="rank-row" key={account.id}>
                           <span>{account.propFirm} - {account.program || "Account"}</span>
-                          <strong>{formatCzk(account.net)}</strong>
+                          <strong>{display(account.net)}</strong>
                           <small>ROI {account.roi.toFixed(1)} %</small>
                         </article>
                       ))
@@ -1919,7 +2087,7 @@ export default function Home() {
                       worstAccounts.map((account) => (
                         <article className="rank-row warning" key={account.id}>
                           <span>{account.propFirm} - {account.program || "Account"}</span>
-                          <strong>{formatCzk(account.net)}</strong>
+                          <strong>{display(account.net)}</strong>
                           <small>ROI {account.roi.toFixed(1)} %</small>
                         </article>
                       ))
@@ -1942,13 +2110,13 @@ export default function Home() {
                   <div className="report-card">
                     <div className="preview-metric">
                       <span>{monthlyReport.month}</span>
-                      <strong>{formatCzk(monthlyReport.net)}</strong>
+                      <strong>{display(monthlyReport.net)}</strong>
                     </div>
                     <div className="recognition-grid">
                       <span>Costs</span>
-                      <strong>{formatCzk(monthlyReport.costs)}</strong>
+                      <strong>{display(monthlyReport.costs)}</strong>
                       <span>Payouts</span>
-                      <strong>{formatCzk(monthlyReport.payouts)}</strong>
+                      <strong>{display(monthlyReport.payouts)}</strong>
                       <span>ROI</span>
                       <strong>{monthlyReport.roi.toFixed(1)} %</strong>
                       <span>Top firm</span>
@@ -1982,10 +2150,10 @@ export default function Home() {
                   summary.byAccount.map(([account, values]) => (
                     <article className="firm-card account-card" key={account}>
                       <span>{account}</span>
-                      <strong>{formatCzk(values.payouts - values.costs)}</strong>
+                      <strong>{display(values.payouts - values.costs)}</strong>
                       <small>
-                        Account cost {formatCzk(values.costs)} - Payout{" "}
-                        {formatCzk(values.payouts)}
+                        Account cost {display(values.costs)} - Payout{" "}
+                        {display(values.payouts)}
                       </small>
                     </article>
                   ))
@@ -2095,7 +2263,9 @@ export default function Home() {
               />
             </section>
 
-            <DemoDashboard />
+            <HowItWorksSection />
+
+            <DemoDashboard displayCurrency={displayCurrency} />
           </>
         )}
 
@@ -2110,6 +2280,7 @@ export default function Home() {
                 : "No account result yet"
               : demoMetrics.account
           }
+          displayCurrency={displayCurrency}
         />
 
         <DealsSection />
@@ -2175,13 +2346,174 @@ function Metric({
   );
 }
 
-function DemoDashboard() {
+function DisplayCurrencySwitch({
+  value,
+  onChange,
+}: {
+  value: DisplayCurrency;
+  onChange: (currency: DisplayCurrency) => void;
+}) {
   return (
-    <section className="demo-dashboard" aria-label="Public demo dashboard">
+    <div className="display-currency" aria-label="Display currency">
+      {(["CZK", "EUR", "USD"] as DisplayCurrency[]).map((currency) => (
+        <button
+          className={value === currency ? "active" : ""}
+          key={currency}
+          type="button"
+          onClick={() => onChange(currency)}
+        >
+          {currency}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ActionCenter({
+  hasAccount,
+  hasCost,
+  hasPayout,
+}: {
+  hasAccount: boolean;
+  hasCost: boolean;
+  hasPayout: boolean;
+}) {
+  const actions = [
+    {
+      title: "Create account",
+      text: "Start every challenge as a trackable business asset.",
+      href: "#accounts",
+      done: hasAccount,
+    },
+    {
+      title: "Add cost",
+      text: "Record challenge fees, resets and refunds manually.",
+      href: "#invoice",
+      done: hasCost,
+    },
+    {
+      title: "Add payout",
+      text: "Attach withdrawals to the account that earned them.",
+      href: "#payout",
+      done: hasPayout,
+    },
+  ];
+
+  return (
+    <section className="action-center" aria-label="Action Center">
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">Action Center</p>
+          <h2>Three clicks that keep the business clean.</h2>
+        </div>
+      </div>
+      <div className="action-grid">
+        {actions.map((action, index) => (
+          <a className={action.done ? "action-card done" : "action-card"} href={action.href} key={action.title}>
+            <span>{action.done ? "Done" : `Step ${index + 1}`}</span>
+            <strong>{action.title}</strong>
+            <small>{action.text}</small>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OnboardingChecklist({
+  hasAccount,
+  hasCost,
+  hasPayout,
+}: {
+  hasAccount: boolean;
+  hasCost: boolean;
+  hasPayout: boolean;
+}) {
+  const items = [
+    { label: "Create your first account", done: hasAccount, href: "#accounts" },
+    { label: "Add the first tracked cost", done: hasCost, href: "#invoice" },
+    { label: "Add the first payout", done: hasPayout, href: "#payout" },
+    { label: "Print motivation sheet", done: hasAccount && hasCost, href: "#overview" },
+  ];
+
+  return (
+    <section className="panel customer-panel">
+      <div className="section-title compact">
+        <div>
+          <p className="eyebrow">Onboarding</p>
+          <h3>Your tracking setup</h3>
+        </div>
+      </div>
+      <div className="checklist">
+        {items.map((item) => (
+          <a className={item.done ? "check-item done" : "check-item"} href={item.href} key={item.label}>
+            <span>{item.done ? "✓" : "○"}</span>
+            <strong>{item.label}</strong>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NeedsAttention({ insights }: { insights: DashboardInsight[] }) {
+  return (
+    <section className="panel customer-panel">
+      <div className="section-title compact">
+        <div>
+          <p className="eyebrow">Needs attention</p>
+          <h3>Review before buying again</h3>
+        </div>
+      </div>
+      <div className="attention-list">
+        {insights.map((insight) => (
+          <article className={`attention-card attention-${insight.tone}`} key={insight.title}>
+            <span>{insight.title}</span>
+            <strong>{insight.value}</strong>
+            <small>{insight.text}</small>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HowItWorksSection() {
+  return (
+    <section id="how-it-works" className="process-grid" aria-label="How it works">
+      <article>
+        <span>01</span>
+        <strong>Create a prop account</strong>
+        <small>Choose the firm, account size, market, strategy and status.</small>
+      </article>
+      <article>
+        <span>02</span>
+        <strong>Add costs manually</strong>
+        <small>Record challenge fees, resets and refunds from real amounts.</small>
+      </article>
+      <article>
+        <span>03</span>
+        <strong>Add payouts</strong>
+        <small>Attach each payout to the account that earned it.</small>
+      </article>
+      <article>
+        <span>04</span>
+        <strong>Compare real ROI</strong>
+        <small>See what deserves more attention before you buy again.</small>
+      </article>
+    </section>
+  );
+}
+
+function DemoDashboard({ displayCurrency }: { displayCurrency: DisplayCurrency }) {
+  const display = (value: number) => formatDisplayMoney(value, displayCurrency);
+
+  return (
+    <section id="demo" className="demo-dashboard" aria-label="Public demo dashboard">
       <div className="section-title">
         <div>
           <p className="eyebrow">Public demo</p>
-          <h2>See the workflow before creating an account.</h2>
+          <h2>See the workflow before creating your first account.</h2>
         </div>
         <span className="soft-pill">demo data only</span>
       </div>
@@ -2189,23 +2521,23 @@ function DemoDashboard() {
       <div className="demo-layout">
         <article className="demo-account-card">
           <span className="status-badge status-challenge">Challenge</span>
-          <h3>{demoMetrics.account}</h3>
+          <h3>Three sample accounts. One honest ROI view.</h3>
           <p>
-            A sample account showing how challenge costs and payouts roll into
-            one clear business result. Demo data is never saved.
+            Compare fees, payouts and break-even across firms before you spend
+            more money on another evaluation.
           </p>
           <div className="demo-metric-grid">
             <span>
               Costs
-              <strong>{formatCzk(demoMetrics.costs)}</strong>
+              <strong>{display(demoMetrics.costs)}</strong>
             </span>
             <span>
               Payouts
-              <strong>{formatCzk(demoMetrics.payouts)}</strong>
+              <strong>{display(demoMetrics.payouts)}</strong>
             </span>
             <span>
               Net
-              <strong>{formatCzk(demoMetrics.net)}</strong>
+              <strong>{display(demoMetrics.net)}</strong>
             </span>
             <span>
               ROI
@@ -2216,20 +2548,23 @@ function DemoDashboard() {
 
         <article className="demo-ranking-card">
           <p className="eyebrow">ROI ranking preview</p>
-          <div className="rank-row">
-            <span>Lucid Trading - 100K Challenge</span>
-            <strong>+197.6%</strong>
-            <small>Best demo result</small>
-          </div>
-          <div className="rank-row warning">
-            <span>FTMO - 50K Challenge</span>
-            <strong>-22.5%</strong>
-            <small>Costs need review</small>
-          </div>
+          {demoAccounts
+            .slice()
+            .sort((a, b) => b.net - a.net)
+            .map((account) => (
+              <div className={account.net < 0 ? "rank-row warning" : "rank-row"} key={account.name}>
+                <span>{account.name}</span>
+                <strong>{display(account.net)}</strong>
+                <small>{account.note} - ROI {account.roi.toFixed(1)}%</small>
+              </div>
+            ))}
           <p className="muted">
             This preview shows the product idea only. Your real dashboard starts
             empty and private after registration.
           </p>
+          <a className="primary-button full" href="#auth">
+            Create your first account
+          </a>
         </article>
       </div>
     </section>
@@ -2241,13 +2576,16 @@ function CreatorSnapshot({
   payouts,
   net,
   bestAccount,
+  displayCurrency,
 }: {
   costs: number;
   payouts: number;
   net: number;
   bestAccount: string;
+  displayCurrency: DisplayCurrency;
 }) {
   const rule = creatorRules[Math.abs(Math.round(net)) % creatorRules.length];
+  const display = (value: number) => formatDisplayMoney(value, displayCurrency);
 
   return (
     <section className="creator-snapshot" aria-label="Creator snapshot">
@@ -2262,15 +2600,15 @@ function CreatorSnapshot({
       <div className="snapshot-grid">
         <span>
           This month costs
-          <strong>{formatCzk(costs)}</strong>
+          <strong>{display(costs)}</strong>
         </span>
         <span>
           Payouts
-          <strong>{formatCzk(payouts)}</strong>
+          <strong>{display(payouts)}</strong>
         </span>
         <span>
           Net result
-          <strong>{formatCzk(net)}</strong>
+          <strong>{display(net)}</strong>
         </span>
         <span>
           Best account
@@ -2299,7 +2637,10 @@ function DealsSection() {
       </p>
 
       <div className="deals-grid">
-        {affiliateDeals.map((deal) => (
+        {affiliateDeals
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((deal) => (
           <article className={deal.featured ? "deal-card featured" : "deal-card"} key={deal.slug}>
             <div className="deal-head">
               <div>
@@ -2309,12 +2650,34 @@ function DealsSection() {
               <span className="deal-code">{deal.promoCode}</span>
             </div>
             <p>{deal.discountText}</p>
+            <div className="deal-comparison">
+              <span>
+                Discount
+                <strong>{deal.promoCode}</strong>
+              </span>
+              <span>
+                Account types
+                <strong>{deal.accountTypes.join(", ")}</strong>
+              </span>
+              <span>
+                Risk note
+                <strong>{deal.riskReminder}</strong>
+              </span>
+              <span>
+                Why track it
+                <strong>{deal.trackingTip}</strong>
+              </span>
+            </div>
             <div className="deal-tags">
               {deal.accountTypes.map((type) => (
                 <span key={type}>{type}</span>
               ))}
             </div>
             <dl className="deal-notes">
+              <div>
+                <dt>Best for</dt>
+                <dd>{deal.bestFor}</dd>
+              </div>
               <div>
                 <dt>Payout note</dt>
                 <dd>{deal.payoutNote}</dd>
