@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Databáze není nastavená. Ve Vercelu přidej Neon/Postgres proměnnou a SESSION_SECRET.",
+          "The database is not configured. Add the Neon/Postgres variable and SESSION_SECRET in Vercel.",
       },
       { status: 503 },
     );
@@ -37,14 +37,14 @@ export async function POST(request: NextRequest) {
 
   if (user?.blocked) {
     return NextResponse.json(
-      { error: "Účet je zablokovaný. Kontaktuj administrátora." },
+      { error: "This account is blocked. Contact an administrator." },
       { status: 403 },
     );
   }
 
   if (!user || !verifyPassword(password, user.password_hash, user.password_salt)) {
     return NextResponse.json(
-      { error: "Nesprávný e-mail nebo heslo." },
+      { error: "Incorrect e-mail or password." },
       { status: 401 },
     );
   }

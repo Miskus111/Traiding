@@ -1,33 +1,31 @@
 # Trader Cost Hub
 
-Moderní multi-user webová aplikace pro sledování nákladů na prop trading,
-faktur, challenge fees, payoutů a čistého výsledku.
+Prop trading is a business. Track it like one.
 
-## Funkce
+Trader Cost Hub is a multi-user SaaS dashboard for tracking prop firm challenge
+fees, resets, refunds, payouts and real ROI in one clean workspace.
 
-- registrace a přihlášení uživatelů,
-- hashovaná hesla a httpOnly session cookie,
-- Postgres databáze pro účty, náklady a payouty,
-- oddělení dat podle přihlášeného uživatele,
-- přidávání faktur / challenge fees,
-- přidávání payoutů,
-- smart import textu z faktury nebo payout e-mailu,
-- rozpoznání prop firmy, programu/účtu, částky, měny, data a typu záznamu,
-- ukládání PDF/screenshotů faktur přes Vercel Blob,
-- AI analýza dokumentů přes OpenAI Responses API,
-- prop accounty se statusy, trhem a strategií,
-- admin panel pro správu uživatelů,
-- souhrn nákladů, payoutů, čistého výsledku a ROI,
-- přehled podle konkrétního účtu / programu,
-- přehled podle měsíců a prop firem,
-- export dat do JSON.
+## Features
 
-## Vercel nastavení
+- user registration and sign-in,
+- hashed passwords and httpOnly session cookies,
+- Postgres database for accounts, costs and payouts,
+- private user data separation,
+- manual-first workflow: account -> cost -> payout -> ROI,
+- prop accounts with status, market and strategy,
+- Vercel Blob storage for invoice and payout proof files,
+- optional AI document preview without automatic form filling,
+- monthly report and creator motivation PDF,
+- ROI ranking by account and prop firm,
+- trust-first Prop Firm Deals section with affiliate disclosure,
+- admin panel for user management.
 
-Projekt je připravený pro Vercel jako čistý Next.js projekt.
+## Vercel setup
 
-Ve Vercelu přidej Postgres databázi. Aplikaci stačí jedna databázová proměnná.
-Podporované jsou tyto názvy, takže fungují i automatické proměnné z Neon integrace:
+The project is prepared for Vercel as a standard Next.js app.
+
+Add a Postgres database in Vercel. The app can use any one of these variables,
+including the automatic variables created by the Neon integration:
 
 ```txt
 POSTGRES_URL=...
@@ -37,39 +35,45 @@ POSTGRES_PRISMA_URL=...
 POSTGRES_URL_NON_POOLING=...
 ```
 
-Nastav také:
+Also set:
 
 ```txt
-SESSION_SECRET=dlouhy-nahodny-tajny-retezec
+SESSION_SECRET=long-random-secret
 BLOB_READ_WRITE_TOKEN=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.6-luna
 ```
 
-Tabulky se vytvoří automaticky při prvním API requestu.
+Database tables are created automatically on the first API request.
 
-Pokud se po deployi zobrazí hláška, že databáze chybí, zkontroluj ve Vercelu
-`Project Settings → Environment Variables`, že je aspoň jedna z databázových
-proměnných dostupná pro `Production`.
+If deployment says the database is missing, check `Project Settings ->
+Environment Variables` in Vercel and make sure at least one database variable is
+available for `Production`.
 
-## Lokální spuštění
+## Local development
 
-Je potřeba Node.js `22.x`.
+Node.js `22.x` is required.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Pro lokální databázi nastav `.env.local`:
+For a local database, set `.env.local`:
 
 ```txt
 POSTGRES_URL=postgres://user:password@localhost:5432/trader_cost_hub
 SESSION_SECRET=local-secret-change-me
 ```
 
-## Poznámka k fakturám
+## Document upload note
 
-Aktuální verze ukládá PDF, obrázky, TXT a CSV soubory do Vercel Blob. Po uploadu
-může uživatel spustit AI analýzu, zkontrolovat návrh a uložit záznam jako náklad
-nebo payout.
+The current version stores PDF, image, TXT and CSV files in Vercel Blob. AI
+analysis is optional and only shows a preview. Users must enter and confirm
+costs or payouts manually.
+
+## Affiliate and risk disclosure
+
+Some prop firm links may be paid links. The app avoids guaranteed-profit claims
+and focuses on cost tracking, comparison and real ROI. This is not financial
+advice. Prop trading is risky.

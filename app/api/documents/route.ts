@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json(
-      { error: "Vercel Blob není nastavený. Přidej BLOB_READ_WRITE_TOKEN ve Vercelu." },
+      { error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel." },
       { status: 503 },
     );
   }
@@ -85,15 +85,15 @@ export async function POST(request: NextRequest) {
   const accountId = optionalText(formData.get("accountId"), 80);
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Nahraj PDF, obrázek nebo textový soubor." }, { status: 400 });
+    return NextResponse.json({ error: "Upload a PDF, image or text file." }, { status: 400 });
   }
   if (file.size <= 0 || file.size > maxBytes) {
-    return NextResponse.json({ error: "Soubor musí mít maximálně 10 MB." }, { status: 400 });
+    return NextResponse.json({ error: "The file must be 10 MB or smaller." }, { status: 400 });
   }
   const contentType = file.type || "application/octet-stream";
   if (!allowedTypes.has(contentType) && !file.name.match(/\.(pdf|png|jpe?g|txt|csv)$/i)) {
     return NextResponse.json(
-      { error: "Podporuji PDF, PNG/JPG, TXT a CSV." },
+      { error: "Supported files are PDF, PNG/JPG, TXT and CSV." },
       { status: 400 },
     );
   }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     );
     if (!account.rows[0]) {
       return NextResponse.json(
-        { error: "Vybraný účet neexistuje nebo ti nepatří." },
+        { error: "The selected account does not exist or does not belong to you." },
         { status: 400 },
       );
     }

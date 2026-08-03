@@ -2,6 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { affiliateDeals } from "@/lib/affiliate-deals";
 import type {
   AccountStatus,
   AdminUserSummary,
@@ -164,8 +165,22 @@ const statusLabels: Record<AccountStatus, string> = {
   archived: "Archived",
 };
 
+const creatorRules = [
+  "Most traders track payouts. I track costs first.",
+  "Before buying another challenge, check your real ROI.",
+  "Your prop trading is a business - measure it like one.",
+];
+
+const demoMetrics = {
+  costs: 9700,
+  payouts: 28875,
+  net: 19175,
+  roi: 197.6,
+  account: "Lucid Trading - 100K Challenge",
+};
+
 function formatCzk(value: number) {
-  return new Intl.NumberFormat("cs-CZ", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "CZK",
     maximumFractionDigits: 0,
@@ -173,7 +188,7 @@ function formatCzk(value: number) {
 }
 
 function formatMoney(value: number, currency: Currency) {
-  return new Intl.NumberFormat("cs-CZ", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: currency === "CZK" ? 0 : 2,
@@ -185,7 +200,7 @@ function toCzk(value: number, currency: Currency) {
 }
 
 function monthLabel(date: string) {
-  return new Intl.DateTimeFormat("cs-CZ", {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     year: "numeric",
   }).format(new Date(`${date}T12:00:00`));
@@ -197,13 +212,13 @@ function parseInvoiceText(text: string) {
     clean.toLowerCase().includes(hint.toLowerCase()),
   );
   const amountMatch = clean.match(
-    /(?:total|amount|celkem|částka|price|paid)[^\d]{0,24}(\d{1,6}(?:[,.]\d{1,2})?)/i,
+    /(?:total|amount|price|paid)[^\d]{0,24}(\d{1,6}(?:[,.]\d{1,2})?)/i,
   );
   const dateMatch = clean.match(
     /(\d{4}-\d{2}-\d{2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/,
   );
   const currency =
-    clean.includes("CZK") || clean.includes("Kč")
+    clean.includes("CZK")
       ? "CZK"
       : clean.includes("USD") || clean.includes("$")
         ? "USD"
@@ -245,7 +260,7 @@ function parseMoney(value: string) {
 
 function inferCurrency(text: string, nearby = ""): Currency {
   const sample = `${nearby} ${text}`;
-  if (/czk|kč|kc/i.test(sample)) return "CZK";
+  if (/czk|kc/i.test(sample)) return "CZK";
   if (/usd|\$|usdt/i.test(sample)) return "USD";
   return "EUR";
 }
@@ -277,7 +292,7 @@ function detectPropFirm(text: string) {
 function detectProgram(text: string) {
   const clean = text.replace(/\s+/g, " ");
   const explicit = clean.match(
-    /(?:program|account|challenge|evaluation|funded account|účet|ucet)[^\w$€]{0,18}([$€]?\s?\d{1,3}(?:[.,\s]?\d{3})?\s?k?)/i,
+    /(?:program|account|challenge|evaluation|funded account|ucet)[^\w$€]{0,18}([$€]?\s?\d{1,3}(?:[.,\s]?\d{3})?\s?k?)/i,
   );
   const accountSize = clean.match(
     /(?:^|\s)(5k|10k|25k|50k|100k|150k|200k|250k|300k|400k|500k|1m|\d{2,3}\s?000)(?:\s|$)/i,
@@ -300,11 +315,11 @@ function extractAmount(text: string, kind: RecognitionKind) {
   const payoutKeywords =
     "payout|withdrawal|withdrawn|profit split|profit share|performance fee|distribution|vyplata|vyplaceno|vyplacena castka|vyber";
   const costKeywords =
-    "total|amount due|amount paid|paid|price|fee|challenge fee|reset fee|activation fee|invoice total|celkem|castka|cena|uhrazeno|faktura";
+    "total|amount due|amount paid|paid|price|fee|challenge fee|reset fee|activation fee|invoice total";
   const preferred = kind === "payout" ? payoutKeywords : costKeywords;
   const secondary = kind === "payout" ? costKeywords : payoutKeywords;
   const money =
-    "([$€]?\\s?\\d{1,3}(?:[\\s.,]?\\d{3})*(?:[,.]\\d{1,2})?|[$€]?\\s?\\d{2,6}(?:[,.]\\d{1,2})?)\\s?(CZK|Kč|KC|EUR|USD|€|\\$)?";
+    "([$€]?\\s?\\d{1,3}(?:[\\s.,]?\\d{3})*(?:[,.]\\d{1,2})?|[$€]?\\s?\\d{2,6}(?:[,.]\\d{1,2})?)\\s?(CZK|KC|EUR|USD|€|\\$)?";
   const patterns = [
     new RegExp(`(?:${preferred})[^\\d$€]{0,60}${money}`, "i"),
     new RegExp(`${money}[^\\w$€]{0,30}(?:${preferred})`, "i"),
@@ -343,9 +358,9 @@ function parseTradingDocument(text: string, sourceName?: string): RecognitionRes
     "profit share",
     "performance fee",
     "distribution",
-    "výplata",
+    "vyplata",
     "vyplaceno",
-    "výběr",
+    "vyber",
   ]);
   const costScore = keywordScore(clean, [
     "invoice",
@@ -356,7 +371,6 @@ function parseTradingDocument(text: string, sourceName?: string): RecognitionRes
     "payment",
     "paid",
     "order",
-    "faktura",
     "uhrazeno",
     "celkem",
   ]);
@@ -372,12 +386,12 @@ function parseTradingDocument(text: string, sourceName?: string): RecognitionRes
   const propFirm = detectPropFirm(clean) || fallback.propFirm;
   const program = detectProgram(clean);
   const signals = [
-    propFirm ? `Prop firma: ${propFirm}` : "",
-    detectedAmount ? `Částka: ${formatMoney(Number(detectedAmount), detectedCurrency)}` : "",
-    date ? `Datum: ${date}` : "",
+    propFirm ? `Prop firm: ${propFirm}` : "",
+    detectedAmount ? `Amount: ${formatMoney(Number(detectedAmount), detectedCurrency)}` : "",
+    date ? `Date: ${date}` : "",
     program ? `Program: ${program}` : "",
-    kind === "payout" ? "Typ: payout/výplata" : "",
-    kind === "cost" ? "Typ: náklad/faktura" : "",
+    kind === "payout" ? "Type: payout" : "",
+    kind === "cost" ? "Type: cost / invoice" : "",
   ].filter(Boolean);
   const confidence = Math.min(
     98,
@@ -415,7 +429,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(payload.error ?? "Něco se nepovedlo. Zkus to prosím znovu.");
+    throw new Error(payload.error ?? "Something went wrong. Please try again.");
   }
 
   return payload as T;
@@ -453,7 +467,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState(
-    "Přihlas se nebo si vytvoř účet. Každý trader má vlastní oddělená data.",
+    "Sign in or create an account. Every trader gets a private workspace.",
   );
 
   useEffect(() => {
@@ -466,14 +480,14 @@ export default function Home() {
         setDatabaseReady(result.databaseReady);
         if (result.user) {
           await loadData();
-          setMessage("Data jsou načtená z databáze.");
+          setMessage("Your dashboard is loaded from the database.");
         } else if (!result.databaseReady) {
           setMessage(
-            "Databáze zatím není nastavená. Ve Vercelu přidej Neon/Postgres proměnnou a SESSION_SECRET.",
+            "The database is not connected yet. Add Neon/Postgres and SESSION_SECRET in Vercel.",
           );
         }
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Aplikaci se nepodařilo načíst.");
+        setMessage(error instanceof Error ? error.message : "The app could not be loaded.");
       } finally {
         setIsLoading(false);
       }
@@ -518,8 +532,8 @@ export default function Home() {
     const monthly: Record<string, { costs: number; payouts: number }> = {};
 
     data.invoices.forEach((invoice) => {
-      const firm = invoice.propFirm || "Nezařazeno";
-      const account = `${firm} • ${invoice.program || "Účet neuveden"}`;
+      const firm = invoice.propFirm || "Unassigned";
+      const account = `${firm} - ${invoice.program || "Account missing"}`;
       const month = monthLabel(invoice.date);
       const amount = toCzk(invoice.amount, invoice.currency);
 
@@ -532,8 +546,8 @@ export default function Home() {
     });
 
     data.payouts.forEach((payout) => {
-      const firm = payout.propFirm || "Nezařazeno";
-      const account = `${firm} • ${payout.program || "Účet neuveden"}`;
+      const firm = payout.propFirm || "Unassigned";
+      const account = `${firm} - ${payout.program || "Account missing"}`;
       const month = monthLabel(payout.date);
       const amount = toCzk(payout.amount, payout.currency);
 
@@ -571,11 +585,11 @@ export default function Home() {
       await loadData();
       setMessage(
         authMode === "register"
-          ? "Účet je vytvořený. Vítej v dashboardu."
-          : "Přihlášení proběhlo úspěšně.",
+          ? "Account created. Welcome to your dashboard."
+          : "Signed in successfully.",
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Přihlášení se nepovedlo.");
+      setMessage(error instanceof Error ? error.message : "Sign-in failed.");
     } finally {
       setIsSaving(false);
     }
@@ -587,7 +601,7 @@ export default function Home() {
     setData({ invoices: [], payouts: [], accounts: [], documents: [] });
     setAdminUsers([]);
     setMonthlyReport(null);
-    setMessage("Odhlášeno. Můžeš se přihlásit pod jiným účtem.");
+    setMessage("Signed out. You can sign in with another account.");
   }
 
   async function addInvoice(event: FormEvent<HTMLFormElement>) {
@@ -606,9 +620,9 @@ export default function Home() {
         invoices: [result.invoice, ...current.invoices],
       }));
       setInvoiceDraft(defaultInvoice());
-      setMessage("Náklad je uložený v databázi.");
+      setMessage("Cost saved.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Náklad se nepodařilo uložit.");
+      setMessage(error instanceof Error ? error.message : "Cost could not be saved.");
     } finally {
       setIsSaving(false);
     }
@@ -631,9 +645,9 @@ export default function Home() {
         payouts: [result.payout, ...current.payouts],
       }));
       setPayoutDraft(defaultPayout());
-      setMessage("Payout je uložený v databázi.");
+      setMessage("Payout saved.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Payout se nepodařilo uložit.");
+      setMessage(error instanceof Error ? error.message : "Payout could not be saved.");
     } finally {
       setIsSaving(false);
     }
@@ -652,9 +666,9 @@ export default function Home() {
         accounts: [result.account, ...current.accounts],
       }));
       setAccountDraft(defaultAccount());
-      setMessage("Prop účet je uložený a připravený na párování nákladů a payoutů.");
+      setMessage("Prop account saved and ready for costs and payouts.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Účet se nepodařilo uložit.");
+      setMessage(error instanceof Error ? error.message : "Account could not be saved.");
     } finally {
       setIsSaving(false);
     }
@@ -673,17 +687,17 @@ export default function Home() {
         body: formData,
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error ?? "Upload se nepovedl.");
+      if (!response.ok) throw new Error(payload.error ?? "Upload failed.");
       const document = payload.document as TradingDocument;
       setData((current) => ({
         ...current,
         documents: [document, ...current.documents],
       }));
       setInvoiceDraft((current) => ({ ...current, fileName: document.fileName }));
-      setMessage("Dokument je uložený ve Vercel Blob. Teď můžeš spustit AI analýzu.");
+      setMessage("Document saved in Vercel Blob. AI preview is optional.");
       return document;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Dokument se nepodařilo nahrát.");
+      setMessage(error instanceof Error ? error.message : "Document could not be uploaded.");
       return null;
     } finally {
       setIsSaving(false);
@@ -709,10 +723,10 @@ export default function Home() {
       }
       setMessage(
         result.warning ??
-          "AI analýza je hotová. Nic jsem nevyplnil automaticky — údaje zkontroluj a zadej ručně.",
+          "AI preview is ready. Nothing was filled automatically - review it and enter data manually.",
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "AI analýza se nepodařila.");
+      setMessage(error instanceof Error ? error.message : "AI preview failed.");
     } finally {
       setIsSaving(false);
     }
@@ -726,9 +740,9 @@ export default function Home() {
         ...current,
         documents: current.documents.filter((document) => document.id !== documentId),
       }));
-      setMessage("Dokument je smazaný z Blobu i databáze.");
+      setMessage("Document deleted from Blob and database.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Dokument se nepodařilo smazat.");
+      setMessage(error instanceof Error ? error.message : "Document could not be deleted.");
     } finally {
       setIsSaving(false);
     }
@@ -741,9 +755,9 @@ export default function Home() {
         `/api/reports/monthly?month=${month}`,
       );
       setMonthlyReport(result.report);
-      setMessage(`Měsíční report pro ${month} je načtený.`);
+      setMessage(`Monthly report for ${month} is loaded.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Report se nepodařilo načíst.");
+      setMessage(error instanceof Error ? error.message : "Report could not be loaded.");
     }
   }
 
@@ -753,7 +767,7 @@ export default function Home() {
       const result = await api<{ users: AdminUserSummary[] }>("/api/admin/users");
       setAdminUsers(result.users);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Admin panel se nepodařilo načíst.");
+      setMessage(error instanceof Error ? error.message : "Admin panel could not be loaded.");
     }
   }
 
@@ -792,8 +806,8 @@ export default function Home() {
     setRecognition(parsed);
     setMessage(
       parsed.signals.length
-        ? `Rozpoznáno ${parsed.confidence}%: ${parsed.signals.join(" • ")}. Formulář zůstává ruční.`
-        : "Z dokladu se nepodařilo najít jasná data. Zkus vložit delší text z faktury nebo payout e-mailu.",
+        ? `Preview confidence ${parsed.confidence}%: ${parsed.signals.join(" • ")}. Forms stay manual.`
+        : "No clear data found. Paste more invoice or payout email text for a better preview.",
     );
   }
 
@@ -807,7 +821,7 @@ export default function Home() {
 
     void uploadDocument(file);
     setInvoiceDraft((current) => ({ ...current, fileName: file.name }));
-    setMessage("Soubor jsem jen nahrál. Náklad nebo payout vyplň ručně a připoj ho k účtu.");
+    setMessage("File uploaded only. Enter the cost or payout manually and attach it to an account.");
   }
 
   const maxMonthly = Math.max(
@@ -835,30 +849,30 @@ export default function Home() {
   const nextAction =
     data.accounts.length === 0
       ? {
-          title: "Založ první challenge účet",
-          text: "Začni účtem. Teprve potom k němu ručně přidávej náklady a payouty.",
+          title: "Create your first challenge account",
+          text: "Start with the account. Then attach every cost and payout to it manually.",
           href: "#accounts",
-          cta: "Přidat účet",
+          cta: "Add account",
         }
       : data.invoices.length === 0
         ? {
-            title: "Přidej první náklad",
-            text: "Vyber založený účet a zapiš challenge fee nebo reset podle faktury.",
+            title: "Add your first cost",
+            text: "Choose an account and record the challenge fee, reset or refund from the real amount.",
             href: "#invoice",
-            cta: "Přidat náklad",
+            cta: "Add cost",
           }
         : data.payouts.length === 0
           ? {
-              title: "Čekáš na první payout",
-              text: "Až přijde výplata, napoj ji na stejný účet. ROI se spočítá samo.",
+              title: "Waiting for the first payout",
+              text: "When it arrives, attach it to the same account. ROI updates automatically.",
               href: "#payout",
-              cta: "Přidat payout",
+              cta: "Add payout",
             }
           : {
-              title: "Sleduj, co se vyplatí",
-              text: "Účty už mají náklady i payouty. Teď porovnávej ROI a slabé účty.",
+              title: "Compare what actually pays off",
+              text: "Your accounts now have costs and payouts. Compare ROI and spot weak accounts.",
               href: "#history",
-              cta: "Zobrazit historii",
+              cta: "View history",
             };
 
   return (
@@ -878,11 +892,12 @@ export default function Home() {
           </div>
           <div className="topbar-actions">
             {user ? (
-              <div className="nav-links" aria-label="Rychlá navigace">
-                <a href="#overview">Přehled</a>
-                <a href="#accounts">Účty</a>
-                <a href="#import">Náklady / payouty</a>
-                <a href="#history">Historie</a>
+              <div className="nav-links" aria-label="Quick navigation">
+                <a href="#overview">Overview</a>
+                <a href="#accounts">Accounts</a>
+                <a href="#import">Costs & Payouts</a>
+                <a href="#deals">Deals</a>
+                <a href="#history">History</a>
               </div>
             ) : null}
             <span className={databaseReady ? "live-pill" : "live-pill warning"}>
@@ -892,7 +907,7 @@ export default function Home() {
               <>
                 <span className="user-pill">{user.name}</span>
                 <button className="ghost-button" onClick={logout}>
-                  Odhlásit
+                  Sign out
                 </button>
               </>
             ) : null}
@@ -902,18 +917,25 @@ export default function Home() {
         <header className="hero-grid">
           <section className="hero-panel">
             <div className="hero-copy">
-              <p className="eyebrow">Launch-ready finance OS • Neon • Vercel</p>
-              <h1>Profesionální dashboard pro funded účty.</h1>
+              <p className="eyebrow">Prop trading is a business. Track it like one.</p>
+              <h1>Stop guessing if prop trading is profitable.</h1>
               <p>
-                Sleduj challenge fees, resety, faktury, payouty a čistý výsledek
-                podle prop firmy i konkrétního účtu. Jeden moderní systém místo
-                chaosu v tabulkách, e-mailech a poznámkách.
+                Track every challenge fee, reset, refund and payout — then see
+                which prop firms actually pay off.
               </p>
+              <div className="hero-ctas">
+                <a className="primary-button" href={user ? "#accounts" : "#auth"}>
+                  Start tracking
+                </a>
+                <a className="ghost-button" href="#deals">
+                  View prop firm deals
+                </a>
+              </div>
               <div className="hero-stats">
-                <span>Smart import</span>
+                <span>Manual-first tracking</span>
                 <span>Account P/L</span>
                 <span>Multi-user</span>
-                <span>Vercel ready</span>
+                <span>Affiliate disclosure</span>
               </div>
             </div>
 
@@ -924,7 +946,7 @@ export default function Home() {
               </div>
               <div className="preview-metric">
                 <span>Net result</span>
-                <strong>42 850 Kč</strong>
+                <strong>{formatCzk(42850)}</strong>
               </div>
               <div className="preview-bars">
                 <span style={{ height: "42%" }} />
@@ -934,15 +956,15 @@ export default function Home() {
                 <span style={{ height: "72%" }} />
               </div>
               <div className="preview-list">
-                <span>Lucid Trading • Account 100K</span>
-                <b>+18 400 Kč</b>
-                <span>FTMO • Challenge 50K</span>
-                <b>-3 250 Kč</b>
+                <span>Lucid Trading - Account 100K</span>
+                <b>{formatCzk(18400)}</b>
+                <span>FTMO - Challenge 50K</span>
+                <b>{formatCzk(-3250)}</b>
               </div>
             </div>
           </section>
 
-          <section className="auth-card">
+          <section id="auth" className="auth-card">
             {!user ? (
               <form onSubmit={handleAuth}>
                 <div className="auth-switch">
@@ -951,27 +973,27 @@ export default function Home() {
                     className={authMode === "login" ? "active" : ""}
                     onClick={() => setAuthMode("login")}
                   >
-                    Přihlášení
+                    Sign in
                   </button>
                   <button
                     type="button"
                     className={authMode === "register" ? "active" : ""}
                     onClick={() => setAuthMode("register")}
                   >
-                    Registrace
+                    Register
                   </button>
                 </div>
 
                 <h2>
                   {authMode === "register"
-                    ? "Vytvořit nový účet"
-                    : "Přihlásit se do účtu"}
+                    ? "Create your account"
+                    : "Sign in to your account"}
                 </h2>
                 <p className="muted">{message}</p>
 
                 {authMode === "register" ? (
                   <label>
-                    Jméno
+                    Name
                     <input
                       value={authForm.name}
                       onChange={(event) =>
@@ -996,14 +1018,14 @@ export default function Home() {
                 </label>
 
                 <label>
-                  Heslo
+                  Password
                   <input
                     type="password"
                     value={authForm.password}
                     onChange={(event) =>
                       setAuthForm({ ...authForm, password: event.target.value })
                     }
-                    placeholder="min. 8 znaků"
+                    placeholder="min. 8 characters"
                     autoComplete={
                       authMode === "register" ? "new-password" : "current-password"
                     }
@@ -1016,28 +1038,28 @@ export default function Home() {
                   type="submit"
                 >
                   {isSaving
-                    ? "Pracuju..."
+                    ? "Working..."
                     : authMode === "register"
-                      ? "Registrovat"
-                      : "Přihlásit"}
+                      ? "Create account"
+                      : "Sign in"}
                 </button>
 
                 {!databaseReady ? (
                   <p className="setup-note">
-                    Ve Vercelu přidej Neon/Postgres databázi a nastav jednu z
-                    podporovaných databázových proměnných.
+                    Add Neon/Postgres and the required database environment
+                    variable in Vercel.
                   </p>
                 ) : null}
               </form>
             ) : (
               <div className="welcome-card">
-                <p className="eyebrow">Přihlášený účet</p>
+                <p className="eyebrow">Signed-in account</p>
                 <h2>{user.name}</h2>
                 <p>{user.email}</p>
                 <p className="muted">{message}</p>
                 <div className="welcome-grid">
-                  <span>{data.invoices.length} nákladů</span>
-                  <span>{data.payouts.length} payoutů</span>
+                  <span>{data.invoices.length} costs</span>
+                  <span>{data.payouts.length} payouts</span>
                 </div>
               </div>
             )}
@@ -1049,40 +1071,40 @@ export default function Home() {
             <section id="overview" className="dashboard-header">
               <div>
                 <p className="eyebrow">Command center</p>
-                <h2>Finanční cockpit pro prop trading</h2>
+                <h2>Your prop trading cockpit</h2>
                 <p>
-                  Nejdřív vidíš výsledek, potom detaily. Náklady, payouty a
-                  účty jsou oddělené tak, aby bylo hned jasné, co funguje.
+                  See the result first, then the details. Costs, payouts and
+                  accounts stay separated so you can understand what is working.
                 </p>
               </div>
               <div className="header-actions">
                 <a className="ghost-button" href="#import">
-                  Přidat záznam
+                  Add record
                 </a>
                 <a className="primary-button" href="#accounts">
-                  Zobrazit účty
+                  View accounts
                 </a>
               </div>
             </section>
 
             <section className="metrics-grid">
-              <Metric label="Náklady na prop firmy" value={formatCzk(summary.costs)} />
-              <Metric label="Payouty celkem" value={formatCzk(summary.payouts)} />
+              <Metric label="Total Costs" value={formatCzk(summary.costs)} />
+              <Metric label="Total Payouts" value={formatCzk(summary.payouts)} />
               <Metric
-                label="Čistý výsledek"
+                label="Net Result"
                 value={formatCzk(summary.net)}
                 positive={summary.net >= 0}
               />
               <Metric
-                label="ROI po nákladech"
+                label="ROI"
                 value={`${summary.roi.toFixed(1)} %`}
                 positive={summary.roi >= 0}
               />
             </section>
 
-            <section className="focus-board" aria-label="Co udělat dál">
+            <section className="focus-board" aria-label="Next best action">
               <article className="focus-card focus-card-main">
-                <p className="eyebrow">Další krok</p>
+                <p className="eyebrow">Next best action</p>
                 <h3>{nextAction.title}</h3>
                 <p>{nextAction.text}</p>
                 <a className="primary-button" href={nextAction.href}>
@@ -1090,123 +1112,128 @@ export default function Home() {
                 </a>
               </article>
               <article className="focus-card">
-                <span>Aktivní účty</span>
+                <span>Active accounts</span>
                 <strong>{activeAccounts.length}</strong>
-                <small>{challengeAccounts.length} ve statusu Challenge</small>
+                <small>{challengeAccounts.length} in Challenge status</small>
               </article>
               <article className="focus-card">
-                <span>Doklady</span>
+                <span>Documents</span>
                 <strong>{data.documents.length}</strong>
-                <small>uložené faktury / payout potvrzení</small>
+                <small>stored invoices / payout confirmations</small>
               </article>
               <article className="focus-card quick-links-card">
-                <span>Rychlé akce</span>
-                <a href="#accounts">+ účet</a>
-                <a href="#invoice">+ náklad</a>
+                <span>Quick actions</span>
+                <a href="#accounts">+ account</a>
+                <a href="#invoice">+ cost</a>
                 <a href="#payout">+ payout</a>
                 <button type="button" onClick={() => window.print()}>
-                  PDF na nástěnku
+                  Print motivation sheet
                 </button>
               </article>
             </section>
 
-            <section className="print-board" aria-label="Motivační PDF report">
+            <section className="print-board" aria-label="Creator PDF motivation report">
               <div className="print-hero">
-                <p>Trader Cost Hub • nástěnkový report</p>
-                <h1>{summary.net >= 0 ? "Drž systém. Výsledek roste." : "Zpomal. Ochraň kapitál."}</h1>
-                <span>{new Date().toLocaleDateString("cs-CZ")}</span>
+                <p>Trader Cost Hub - Creator PDF</p>
+                <h1>{summary.net >= 0 ? "Keep the system. The result is growing." : "Slow down. Protect your capital."}</h1>
+                <span>{new Date().toLocaleDateString("en-US")}</span>
               </div>
 
               <div className="print-score">
-                <span>Čistý výsledek</span>
+                <span>Net Result</span>
                 <strong>{formatCzk(summary.net)}</strong>
-                <small>ROI {summary.roi.toFixed(1)} % po všech nákladech</small>
+                <small>ROI {summary.roi.toFixed(1)} % after all tracked costs</small>
               </div>
 
               <div className="print-metrics">
                 <article>
-                  <span>Náklady</span>
+                  <span>Costs</span>
                   <strong>{formatCzk(summary.costs)}</strong>
                 </article>
                 <article>
-                  <span>Payouty</span>
+                  <span>Payouts</span>
                   <strong>{formatCzk(summary.payouts)}</strong>
                 </article>
                 <article>
-                  <span>Challenge účty</span>
+                  <span>Challenge accounts</span>
                   <strong>{challengeAccounts.length}</strong>
                 </article>
                 <article>
-                  <span>Aktivní účty</span>
+                  <span>Active accounts</span>
                   <strong>{activeAccounts.length}</strong>
                 </article>
               </div>
 
               <div className="print-grid">
                 <article>
-                  <span>Nejlepší účet</span>
+                  <span>Best account</span>
                   <strong>
                     {topAccounts[0]
-                      ? `${topAccounts[0].propFirm} • ${topAccounts[0].program || "Účet"}`
-                      : "Zatím bez výsledku"}
+                      ? `${topAccounts[0].propFirm} - ${topAccounts[0].program || "Account"}`
+                      : "No result yet"}
                   </strong>
-                  <small>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "Přidej první náklad a payout."}</small>
+                  <small>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "Add your first cost and payout."}</small>
                 </article>
                 <article>
-                  <span>Top firma</span>
-                  <strong>{monthlyReport?.bestPropFirm ?? summary.byFirm[0]?.[0] ?? "Zatím není"}</strong>
-                  <small>{monthlyReport?.recommendation ?? "Sleduj jen účty, které mají jasný plán a řízený risk."}</small>
+                  <span>Top firm</span>
+                  <strong>{monthlyReport?.bestPropFirm ?? summary.byFirm[0]?.[0] ?? "Not enough data"}</strong>
+                  <small>{monthlyReport?.recommendation ?? "Track only accounts with a clear plan and controlled risk."}</small>
                 </article>
               </div>
 
               <div className="print-rules">
-                <h2>Pravidla na každý trading den</h2>
+                <h2>Rules for every trading day</h2>
                 <ol>
-                  <li>Nejdřív chraň účet, potom řeš payout.</li>
-                  <li>Každý challenge fee musí mít plán, ne emoci.</li>
-                  <li>Co neměříš, to tě stojí peníze.</li>
-                  <li>Malé konzistentní kroky porazí náhodný velký zisk.</li>
+                  <li>Protect the account before chasing a payout.</li>
+                  <li>Every challenge fee needs a plan, not an emotion.</li>
+                  <li>If you do not measure it, it can silently cost you.</li>
+                  <li>Small consistent actions beat random big wins.</li>
                 </ol>
               </div>
 
               <blockquote>
-                “Každý účet je byznys. Měř náklady, drž disciplínu, vybírej payouty.”
+                “Every account is a business. Track costs, keep discipline, withdraw payouts.”
               </blockquote>
             </section>
 
-            <section className="insight-strip" aria-label="Rychlé shrnutí">
+            <section className="insight-strip" aria-label="Quick summary">
               <article>
-                <span>Aktivní záznamy</span>
+                <span>Active records</span>
                 <strong>{data.invoices.length + data.payouts.length}</strong>
-                <small>náklady + payouty uložené v databázi</small>
+                <small>costs + payouts stored in the database</small>
               </article>
               <article>
-                <span>Prop firmy</span>
+                <span>Prop firms</span>
                 <strong>{summary.byFirm.length}</strong>
-                <small>zdroje s uloženým nákladem nebo payoutem</small>
+                <small>sources with a saved cost or payout</small>
               </article>
               <article>
-                <span>Sledované účty</span>
+                <span>Tracked accounts</span>
                 <strong>{summary.byAccount.length}</strong>
-                <small>párování podle firma + program</small>
+                <small>matched by firm + program</small>
               </article>
             </section>
 
-            <section className="process-grid" aria-label="Doporučený postup práce">
+            <section className="process-grid" aria-label="How it works">
               <article>
                 <span>01</span>
-                <strong>Založ challenge účet</strong>
-                <small>Vyber prop firmu, velikost účtu, trh, strategii a nech status Challenge.</small>
+                <strong>Create a prop account</strong>
+                <small>Choose the prop firm, account size, market, strategy and keep the status as Challenge.</small>
               </article>
               <article>
                 <span>02</span>
-                <strong>Přidej náklad ručně</strong>
-                <small>Vyber účet a zapiš challenge fee, reset nebo refund podle skutečné částky.</small>
+                <strong>Add costs manually</strong>
+                <small>Select the account and record challenge fees, resets or refunds from real amounts.</small>
               </article>
               <article>
                 <span>03</span>
-                <strong>Přidej payout ručně</strong>
-                <small>Až přijde výplata, napoj ji na stejný účet a dashboard spočítá ROI.</small>
+                <strong>Add payouts</strong>
+                <small>Attach every payout to the same account and the dashboard calculates ROI.</small>
+              </article>
+              <article>
+                <span>04</span>
+                <strong>Compare real ROI</strong>
+                <small>See which firms, markets and strategies are worth more attention.</small>
               </article>
             </section>
 
@@ -1215,19 +1242,19 @@ export default function Home() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Prop accounts</p>
-                    <h2>Přidat challenge účet</h2>
+                    <h2>Add challenge account</h2>
                   </div>
-                  <span className="soft-pill">výchozí status: Challenge</span>
+                  <span className="soft-pill">default status: Challenge</span>
                 </div>
                 <div className="manual-flow-card">
-                  <strong>1. Založ účet → 2. Přidej náklad → 3. Přidej payout</strong>
+                  <strong>1. Create account - 2. Add cost - 3. Add payout</strong>
                   <small>
-                    Faktura už nic sama nevyplňuje. Údaje zadáváš ručně a jen je napojíš na správný účet.
+                    Invoice upload no longer fills anything automatically. Enter data manually and attach it to the right account.
                   </small>
                 </div>
                 <div className="form-grid">
                   <label>
-                    Prop firma
+                    Prop firm
                     <input
                       list="prop-firms"
                       value={accountDraft.propFirm}
@@ -1238,7 +1265,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Program / účet
+                    Program / account
                     <input
                       value={accountDraft.program}
                       onChange={(event) =>
@@ -1248,7 +1275,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Velikost účtu
+                    Account size
                     <input
                       value={accountDraft.accountSize}
                       onChange={(event) =>
@@ -1258,7 +1285,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Typ účtu
+                    Account type
                     <select
                       value={accountDraft.accountType}
                       onChange={(event) =>
@@ -1273,7 +1300,7 @@ export default function Home() {
                     </select>
                   </label>
                   <label>
-                    Trh
+                    Market
                     <input
                       value={accountDraft.market}
                       onChange={(event) =>
@@ -1283,7 +1310,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Strategie
+                    Strategy
                     <input
                       value={accountDraft.strategy}
                       onChange={(event) =>
@@ -1311,7 +1338,7 @@ export default function Home() {
                     </select>
                   </label>
                   <label>
-                    Datum nákupu
+                    Purchase date
                     <input
                       type="date"
                       value={accountDraft.purchaseDate}
@@ -1321,7 +1348,7 @@ export default function Home() {
                     />
                   </label>
                 </div>
-                <div className="status-shortcuts" aria-label="Rychlé nastavení statusu účtu">
+                <div className="status-shortcuts" aria-label="Quick account status shortcuts">
                   {(["challenge", "verification", "funded", "failed"] as AccountStatus[]).map(
                     (status) => (
                       <button
@@ -1342,7 +1369,7 @@ export default function Home() {
                   )}
                 </div>
                 <button className="primary-button" disabled={isSaving} type="submit">
-                  Uložit challenge účet
+                  Save challenge account
                 </button>
               </form>
 
@@ -1350,9 +1377,9 @@ export default function Home() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Account portfolio</p>
-                    <h2>Filtry a statusy</h2>
+                    <h2>Filters and status</h2>
                   </div>
-                  <span className="soft-pill">{filteredAccounts.length} účtů</span>
+                  <span className="soft-pill">{filteredAccounts.length} accounts</span>
                 </div>
                 <div className="portfolio-summary">
                   <article>
@@ -1360,12 +1387,12 @@ export default function Home() {
                     <strong>{challengeAccounts.length}</strong>
                   </article>
                   <article>
-                    <span>Aktivní</span>
+                    <span>Active</span>
                     <strong>{activeAccounts.length}</strong>
                   </article>
                   <article>
-                    <span>Nejlepší účet</span>
-                    <strong>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "—"}</strong>
+                    <span>Best account</span>
+                    <strong>{topAccounts[0] ? formatCzk(topAccounts[0].net) : "-"}</strong>
                   </article>
                 </div>
                 <div className="filter-grid">
@@ -1374,7 +1401,7 @@ export default function Home() {
                     onChange={(event) =>
                       setAccountFilters({ ...accountFilters, firm: event.target.value })
                     }
-                    placeholder="Filtrovat firmu"
+                    placeholder="Filter firm"
                   />
                   <select
                     value={accountFilters.status}
@@ -1382,7 +1409,7 @@ export default function Home() {
                       setAccountFilters({ ...accountFilters, status: event.target.value })
                     }
                   >
-                    <option value="">Všechny statusy</option>
+                    <option value="">All statuses</option>
                     {accountStatuses.map((status) => (
                       <option key={status} value={status}>
                         {statusLabels[status]}
@@ -1394,19 +1421,19 @@ export default function Home() {
                     onChange={(event) =>
                       setAccountFilters({ ...accountFilters, market: event.target.value })
                     }
-                    placeholder="Trh"
+                    placeholder="Market"
                   />
                   <input
                     value={accountFilters.strategy}
                     onChange={(event) =>
                       setAccountFilters({ ...accountFilters, strategy: event.target.value })
                     }
-                    placeholder="Strategie"
+                    placeholder="Strategy"
                   />
                 </div>
                 <div className="account-grid">
                   {filteredAccounts.length === 0 ? (
-                    <p className="muted">Založ první účet nebo uprav filtr.</p>
+                    <p className="muted">Create your first account or adjust the filter.</p>
                   ) : (
                     filteredAccounts.map((account) => (
                       <article className="firm-card account-card" key={account.id}>
@@ -1414,17 +1441,17 @@ export default function Home() {
                           <span className={`status-badge status-${account.status.replace(/\s+/g, "-")}`}>
                             {statusLabels[account.status]}
                           </span>
-                          <small>{account.market || "trh neuveden"}</small>
+                          <small>{account.market || "market missing"}</small>
                         </div>
                         <strong>{account.propFirm}</strong>
-                        <small>{account.program || "Účet neuveden"}</small>
+                        <small>{account.program || "Account missing"}</small>
                         <div className="account-metrics">
                           <span>
-                            Náklady
+                            Costs
                             <strong>{formatCzk(account.costs)}</strong>
                           </span>
                           <span>
-                            Payouty
+                            Payouts
                             <strong>{formatCzk(account.payouts)}</strong>
                           </span>
                           <span>
@@ -1443,14 +1470,14 @@ export default function Home() {
               <form id="invoice" className="panel form-panel" onSubmit={addInvoice}>
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Faktury a challenge fees</p>
-                    <h2>Přidat náklad</h2>
+                    <p className="eyebrow">Costs and challenge fees</p>
+                    <h2>Add cost</h2>
                   </div>
                   <span className="soft-pill">DB save</span>
                 </div>
                 <div className="manual-flow-card compact">
-                  <strong>Náklad zadávej ručně podle faktury.</strong>
-                  <small>Vyber účet, částku, měnu a datum. Nahraná faktura slouží jen jako uložený doklad.</small>
+                  <strong>Enter every cost manually from the real invoice.</strong>
+                  <small>Select the account, amount, currency and date. Uploaded files are stored as proof only.</small>
                 </div>
 
                 <label className="file-drop">
@@ -1459,24 +1486,24 @@ export default function Home() {
                     accept=".pdf,.txt,.csv,image/*"
                     onChange={handleFile}
                   />
-                  <strong>Nahrát fakturu</strong>
+                  <strong>Upload invoice proof</strong>
                   <small>
-                    Soubor se jen uloží do Vercel Blob. Formulář se nevyplní automaticky.
+                    The file is saved to Vercel Blob only. The form will not autofill.
                   </small>
                 </label>
 
                 <details className="smart-import">
                   <summary>
                     <div>
-                      <p className="eyebrow">Volitelný náhled</p>
-                      <h3>Zkusit přečíst text bez vyplnění formuláře</h3>
+                      <p className="eyebrow">Optional document preview</p>
+                      <h3>Preview text without filling the form</h3>
                     </div>
                     <span className="soft-pill">manual only</span>
                   </summary>
                   <textarea
                     value={documentText}
                     onChange={(event) => setDocumentText(event.target.value)}
-                    placeholder="Sem můžeš vložit text z faktury nebo e-mailu jen pro kontrolní náhled. Nic se samo neuloží ani nepředvyplní."
+                    placeholder="Paste invoice or payout email text here for a preview only. Nothing is saved or prefilled automatically."
                     rows={5}
                   />
                   <button
@@ -1485,7 +1512,7 @@ export default function Home() {
                     type="button"
                     onClick={handleSmartImport}
                   >
-                    Jen zobrazit náhled
+                    Show preview only
                   </button>
                 </details>
 
@@ -1496,25 +1523,25 @@ export default function Home() {
                 <div className="document-stack">
                   <div className="section-title compact">
                     <div>
-                      <p className="eyebrow">Blob dokumenty</p>
-                      <h3>Nahrané faktury a payout potvrzení</h3>
+                      <p className="eyebrow">Document storage</p>
+                      <h3>Uploaded invoices and payout confirmations</h3>
                     </div>
-                    <span className="soft-pill">{data.documents.length} souborů</span>
+                    <span className="soft-pill">{data.documents.length} files</span>
                   </div>
                   {data.documents.length === 0 ? (
-                    <p className="muted">Nahraj PDF nebo screenshot. AI náhled je volitelný a nic nevyplní automaticky.</p>
+                    <p className="muted">Upload a PDF or screenshot. AI preview is optional and never fills the form automatically.</p>
                   ) : (
                     data.documents.slice(0, 4).map((document) => (
                       <article className="document-card" key={document.id}>
                         <div>
                           <strong>{document.fileName}</strong>
                           <small>
-                            {document.aiStatus} • {(document.fileSize / 1024).toFixed(0)} KB
+                            {document.aiStatus} - {(document.fileSize / 1024).toFixed(0)} KB
                           </small>
                         </div>
                         <div className="document-actions">
                           <a className="ghost-button" href={document.fileUrl} target="_blank" rel="noreferrer">
-                            Otevřít
+                            Open
                           </a>
                           <button
                             className="primary-button"
@@ -1522,7 +1549,7 @@ export default function Home() {
                             type="button"
                             onClick={() => analyzeDocument(document.id)}
                           >
-                            AI náhled
+                            AI preview
                           </button>
                           <button
                             className="ghost-button danger"
@@ -1530,7 +1557,7 @@ export default function Home() {
                             type="button"
                             onClick={() => removeDocument(document.id)}
                           >
-                            Smazat
+                            Delete
                           </button>
                         </div>
                       </article>
@@ -1542,30 +1569,30 @@ export default function Home() {
                   <div className="ai-result">
                     <div className="recognition-head">
                       <div>
-                        <p className="eyebrow">AI výsledek</p>
+                        <p className="eyebrow">AI preview</p>
                         <h3>{documentAnalysis.recordType}</h3>
                       </div>
-                      <span className="confidence">{documentAnalysis.confidence}% jistota</span>
+                      <span className="confidence">{documentAnalysis.confidence}% confidence</span>
                     </div>
                     <div className="recognition-grid">
-                      <span>Firma</span>
-                      <strong>{documentAnalysis.propFirm || "nenalezeno"}</strong>
-                      <span>Účet</span>
-                      <strong>{documentAnalysis.program || "nenalezeno"}</strong>
-                      <span>Částka</span>
+                      <span>Firm</span>
+                      <strong>{documentAnalysis.propFirm || "not found"}</strong>
+                      <span>Account</span>
+                      <strong>{documentAnalysis.program || "not found"}</strong>
+                      <span>Amount</span>
                       <strong>{formatMoney(documentAnalysis.amount, documentAnalysis.currency)}</strong>
                       <span>Status</span>
-                      <strong>{documentAnalysis.suggestedStatus || "bez návrhu"}</strong>
+                      <strong>{documentAnalysis.suggestedStatus || "no suggestion"}</strong>
                     </div>
                     <p className="muted">
-                      AI výsledek je jen orientační kontrola. Formulář níže vyplň ručně a vyber správný účet.
+                      AI preview is only a reference check. Fill the form below manually and choose the right account.
                     </p>
                   </div>
                 ) : null}
 
                 <div className="form-grid">
                   <label>
-                    Připojit k účtu
+                    Attach to account
                     <select
                       value={invoiceDraft.accountId}
                       onChange={(event) => {
@@ -1578,16 +1605,16 @@ export default function Home() {
                         });
                       }}
                     >
-                      <option value="">Bez napojení</option>
+                      <option value="">No account attached</option>
                       {data.accounts.map((account) => (
                         <option value={account.id} key={account.id}>
-                          {account.propFirm} • {account.program || "Účet neuveden"}
+                          {account.propFirm} - {account.program || "Account missing"}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    Prop firma
+                    Prop firm
                     <input
                       list="prop-firms"
                       value={invoiceDraft.propFirm}
@@ -1614,7 +1641,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Částka
+                    Amount
                     <input
                       type="number"
                       min="0"
@@ -1635,7 +1662,7 @@ export default function Home() {
                     }
                   />
                   <label>
-                    Datum
+                    Date
                     <input
                       type="date"
                       value={invoiceDraft.date}
@@ -1648,7 +1675,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Poznámka
+                    Note
                     <input
                       value={invoiceDraft.note}
                       onChange={(event) =>
@@ -1657,31 +1684,31 @@ export default function Home() {
                           note: event.target.value,
                         })
                       }
-                      placeholder="refund, reset, extra účet..."
+                      placeholder="refund, reset, extra account..."
                     />
                   </label>
                 </div>
                 <button className="primary-button" disabled={isSaving} type="submit">
-                  Uložit náklad
+                  Save cost
                 </button>
               </form>
 
               <form id="payout" className="panel form-panel" onSubmit={addPayout}>
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Výplaty z prop firem</p>
-                    <h2>Přidat payout</h2>
+                    <p className="eyebrow">Prop firm payouts</p>
+                    <h2>Add payout</h2>
                   </div>
                   <span className="soft-pill">Profit split</span>
                 </div>
                 <div className="manual-flow-card compact">
-                  <strong>Payout napoj na účet, který ho vydělal.</strong>
-                  <small>Vyber stejný účet jako u challenge fee a zapiš čistou vyplacenou částku.</small>
+                  <strong>Attach the payout to the account that earned it.</strong>
+                  <small>Select the same account as the challenge fee and enter the net amount received.</small>
                 </div>
 
                 <div className="form-grid">
                   <label>
-                    Připojit k účtu
+                    Attach to account
                     <select
                       value={payoutDraft.accountId}
                       onChange={(event) => {
@@ -1694,16 +1721,16 @@ export default function Home() {
                         });
                       }}
                     >
-                      <option value="">Bez napojení</option>
+                      <option value="">No account attached</option>
                       {data.accounts.map((account) => (
                         <option value={account.id} key={account.id}>
-                          {account.propFirm} • {account.program || "Účet neuveden"}
+                          {account.propFirm} - {account.program || "Account missing"}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    Prop firma
+                    Prop firm
                     <input
                       list="prop-firms"
                       value={payoutDraft.propFirm}
@@ -1717,7 +1744,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Program / účet
+                    Program / account
                     <input
                       value={payoutDraft.program}
                       onChange={(event) =>
@@ -1730,7 +1757,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Vyplacená částka
+                    Payout amount
                     <input
                       type="number"
                       min="0"
@@ -1766,7 +1793,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Datum
+                    Date
                     <input
                       type="date"
                       value={payoutDraft.date}
@@ -1779,7 +1806,7 @@ export default function Home() {
                     />
                   </label>
                   <label>
-                    Poznámka
+                    Note
                     <input
                       value={payoutDraft.note}
                       onChange={(event) =>
@@ -1793,7 +1820,7 @@ export default function Home() {
                   </label>
                 </div>
                 <button className="primary-button" disabled={isSaving} type="submit">
-                  Uložit payout
+                  Save payout
                 </button>
               </form>
             </section>
@@ -1802,13 +1829,13 @@ export default function Home() {
               <div className="panel">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Měsíční vývoj</p>
+                    <p className="eyebrow">Monthly trend</p>
                     <h2>Cashflow</h2>
                   </div>
                 </div>
                 <div className="chart">
                   {summary.monthly.length === 0 ? (
-                    <p className="muted">Zatím nejsou žádná data.</p>
+                    <p className="muted">No data yet.</p>
                   ) : (
                     summary.monthly.map(([month, values]) => (
                       <div className="chart-row" key={month}>
@@ -1837,20 +1864,20 @@ export default function Home() {
               <div className="panel">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Podle prop firmy</p>
-                    <h2>Výsledek podle zdroje</h2>
+                    <p className="eyebrow">By prop firm</p>
+                    <h2>Result by source</h2>
                   </div>
                 </div>
                 <div className="firm-grid">
                   {summary.byFirm.length === 0 ? (
-                    <p className="muted">Přidej první fakturu nebo payout.</p>
+                    <p className="muted">Add your first cost or payout.</p>
                   ) : (
                     summary.byFirm.map(([firm, values]) => (
                       <article className="firm-card" key={firm}>
                         <span>{firm}</span>
                         <strong>{formatCzk(values.payouts - values.costs)}</strong>
                         <small>
-                          Náklady {formatCzk(values.costs)} · Payouty{" "}
+                          Costs {formatCzk(values.costs)} - Payouts{" "}
                           {formatCzk(values.payouts)}
                         </small>
                       </article>
@@ -1864,20 +1891,20 @@ export default function Home() {
               <div className="panel">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Co se vyplatí</p>
-                    <h2>ROI ranking účtů</h2>
+                    <p className="eyebrow">What pays off</p>
+                    <h2>Account ROI ranking</h2>
                   </div>
                   <span className="soft-pill">best / worst</span>
                 </div>
                 <div className="ranking-grid">
                   <div>
-                    <h3>Nejlepší účty</h3>
+                    <h3>Best accounts</h3>
                     {topAccounts.length === 0 ? (
-                      <p className="muted">Zatím nejsou účty s výsledkem.</p>
+                      <p className="muted">No accounts with a result yet.</p>
                     ) : (
                       topAccounts.map((account) => (
                         <article className="rank-row" key={account.id}>
-                          <span>{account.propFirm} • {account.program || "Účet"}</span>
+                          <span>{account.propFirm} - {account.program || "Account"}</span>
                           <strong>{formatCzk(account.net)}</strong>
                           <small>ROI {account.roi.toFixed(1)} %</small>
                         </article>
@@ -1885,13 +1912,13 @@ export default function Home() {
                     )}
                   </div>
                   <div>
-                    <h3>Největší ztráty</h3>
+                    <h3>Biggest losses</h3>
                     {worstAccounts.length === 0 ? (
-                      <p className="muted">Zatím nejsou účty s výsledkem.</p>
+                      <p className="muted">No accounts with a result yet.</p>
                     ) : (
                       worstAccounts.map((account) => (
                         <article className="rank-row warning" key={account.id}>
-                          <span>{account.propFirm} • {account.program || "Účet"}</span>
+                          <span>{account.propFirm} - {account.program || "Account"}</span>
                           <strong>{formatCzk(account.net)}</strong>
                           <small>ROI {account.roi.toFixed(1)} %</small>
                         </article>
@@ -1904,11 +1931,11 @@ export default function Home() {
               <div className="panel">
                 <div className="section-title">
                   <div>
-                    <p className="eyebrow">Měsíční report</p>
-                    <h2>Automatické vyhodnocení</h2>
+                    <p className="eyebrow">Monthly report</p>
+                    <h2>Creator PDF summary</h2>
                   </div>
                   <button className="ghost-button" type="button" onClick={loadMonthlyReport}>
-                    Načíst report
+                    Load report
                   </button>
                 </div>
                 {monthlyReport ? (
@@ -1918,24 +1945,24 @@ export default function Home() {
                       <strong>{formatCzk(monthlyReport.net)}</strong>
                     </div>
                     <div className="recognition-grid">
-                      <span>Náklady</span>
+                      <span>Costs</span>
                       <strong>{formatCzk(monthlyReport.costs)}</strong>
-                      <span>Payouty</span>
+                      <span>Payouts</span>
                       <strong>{formatCzk(monthlyReport.payouts)}</strong>
                       <span>ROI</span>
                       <strong>{monthlyReport.roi.toFixed(1)} %</strong>
-                      <span>Top firma</span>
-                      <strong>{monthlyReport.bestPropFirm ?? "není"}</strong>
+                      <span>Top firm</span>
+                      <strong>{monthlyReport.bestPropFirm ?? "none"}</strong>
                     </div>
                     <p className="muted">{monthlyReport.recommendation}</p>
                     <div className="recognition-actions">
                       <button className="ghost-button" type="button" onClick={() => window.print()}>
-                        Vytisknout na nástěnku
+                        Print motivation sheet
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <p className="muted">Načti report aktuálního měsíce a dostaneš stručné doporučení.</p>
+                  <p className="muted">Load this month and get a clean board-ready summary.</p>
                 )}
               </div>
             </section>
@@ -1943,21 +1970,21 @@ export default function Home() {
             <section className="panel account-panel">
               <div className="section-title">
                 <div>
-                  <p className="eyebrow">Podle účtu</p>
-                  <h2>Náklady vs payouty na konkrétní account</h2>
+                  <p className="eyebrow">By account</p>
+                  <h2>Costs vs payouts per account</h2>
                 </div>
                 <span className="soft-pill">firma + program</span>
               </div>
               <div className="account-grid">
                 {summary.byAccount.length === 0 ? (
-                  <p className="muted">Až přidáš náklad nebo payout, uvidíš tady výsledek po účtech.</p>
+                  <p className="muted">Add a cost or payout and you will see account-level results here.</p>
                 ) : (
                   summary.byAccount.map(([account, values]) => (
                     <article className="firm-card account-card" key={account}>
                       <span>{account}</span>
                       <strong>{formatCzk(values.payouts - values.costs)}</strong>
                       <small>
-                        Účet stál {formatCzk(values.costs)} • Payout{" "}
+                        Account cost {formatCzk(values.costs)} - Payout{" "}
                         {formatCzk(values.payouts)}
                       </small>
                     </article>
@@ -1968,12 +1995,12 @@ export default function Home() {
 
             <section id="history" className="records-grid">
               <RecordsTable
-                title="Náklady"
-                empty="Zatím žádné uložené faktury."
+                title="Costs"
+                empty="No saved costs yet."
                 rows={data.invoices.map((invoice) => ({
                   id: invoice.id,
                   name: invoice.propFirm,
-                  detail: invoice.program || invoice.fileName || "Faktura",
+                  detail: invoice.program || invoice.fileName || "Invoice",
                   amount: formatMoney(invoice.amount, invoice.currency),
                   date: invoice.date,
                   note: invoice.note,
@@ -1981,12 +2008,12 @@ export default function Home() {
                 onRemove={removeInvoice}
               />
               <RecordsTable
-                title="Payouty"
-                empty="Zatím žádné uložené payouty."
+                title="Payouts"
+                empty="No saved payouts yet."
                 rows={data.payouts.map((payout) => ({
                   id: payout.id,
                   name: payout.propFirm,
-                  detail: `${payout.program || "Účet neuveden"} • ${payout.split}% split`,
+                  detail: `${payout.program || "Account missing"} - ${payout.split}% split`,
                   amount: formatMoney(payout.amount, payout.currency),
                   date: payout.date,
                   note: payout.note,
@@ -2000,15 +2027,15 @@ export default function Home() {
                 <div className="section-title">
                   <div>
                     <p className="eyebrow">Admin panel</p>
-                    <h2>Uživatelé a využití systému</h2>
+                    <h2>Users and system usage</h2>
                   </div>
                   <button className="ghost-button" type="button" onClick={loadAdminUsers}>
-                    Obnovit
+                    Refresh
                   </button>
                 </div>
                 <div className="admin-grid">
                   {adminUsers.length === 0 ? (
-                    <p className="muted">Načítám uživatele nebo zatím nejsou data.</p>
+                    <p className="muted">Loading users or no data yet.</p>
                   ) : (
                     adminUsers.map((summary) => (
                       <article className="admin-card" key={summary.id}>
@@ -2016,8 +2043,8 @@ export default function Home() {
                           <strong>{summary.name}</strong>
                           <span>{summary.email}</span>
                           <small>
-                            {summary.accounts} účtů • {summary.invoices} nákladů •{" "}
-                            {summary.payouts} payoutů • {summary.documents} dokumentů
+                            {summary.accounts} accounts - {summary.invoices} costs -{" "}
+                            {summary.payouts} payouts - {summary.documents} documents
                           </small>
                         </div>
                         <div className="admin-actions">
@@ -2041,7 +2068,7 @@ export default function Home() {
                               })
                             }
                           >
-                            {summary.blocked ? "Odblokovat" : "Zablokovat"}
+                            {summary.blocked ? "Unblock" : "Block"}
                           </button>
                         </div>
                       </article>
@@ -2052,21 +2079,52 @@ export default function Home() {
             ) : null}
           </>
         ) : (
-          <section className="feature-grid">
-            <Feature
-              title="Smart import dokladů"
-              text="Vložíš text faktury nebo payout e-mailu a systém zkusí rozpoznat firmu, účet, částku, měnu i datum."
-            />
-            <Feature
-              title="Výsledek podle účtu"
-              text="Dashboard spojuje náklady a payouty podle prop firmy a programu, třeba Lucid Trading • Account 100K."
-            />
-            <Feature
-              title="Připravené na spuštění"
-              text="Multi-user účty, Neon/Postgres databáze, serverové cookies a katalog prop firem pro reálný provoz."
-            />
-          </section>
+          <>
+            <section className="feature-grid">
+              <Feature
+                title="Manual-first tracking"
+                text="Create the account first, then add challenge fees, resets, refunds and payouts by hand. No messy autofill."
+              />
+              <Feature
+                title="Real ROI by account"
+                text="See costs and payouts per prop firm account, including Lucid Trading - 100K Challenge."
+              />
+              <Feature
+                title="Built for public launch"
+                text="Multi-user accounts, Neon/Postgres storage, secure cookies and a growing prop firm catalog."
+              />
+            </section>
+
+            <DemoDashboard />
+          </>
         )}
+
+        <CreatorSnapshot
+          costs={user ? summary.costs : demoMetrics.costs}
+          payouts={user ? summary.payouts : demoMetrics.payouts}
+          net={user ? summary.net : demoMetrics.net}
+          bestAccount={
+            user
+              ? topAccounts[0]
+                ? `${topAccounts[0].propFirm} - ${topAccounts[0].program || "Account"}`
+                : "No account result yet"
+              : demoMetrics.account
+          }
+        />
+
+        <DealsSection />
+
+        <footer className="site-footer">
+          <span>Affiliate disclosure</span>
+          <span>Risk disclaimer</span>
+          <span>Not financial advice</span>
+          <p>
+            Not financial advice. Prop trading is risky. Track your costs before
+            buying another challenge. If a video or post contains a promo code
+            or affiliate link, disclose that relationship directly in the video
+            and caption.
+          </p>
+        </footer>
 
         <datalist id="prop-firms">
           {propFirmHints.map((firm) => (
@@ -2087,7 +2145,7 @@ function CurrencySelect({
 }) {
   return (
     <label>
-      Měna
+      Currency
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as Currency)}
@@ -2117,37 +2175,206 @@ function Metric({
   );
 }
 
+function DemoDashboard() {
+  return (
+    <section className="demo-dashboard" aria-label="Public demo dashboard">
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">Public demo</p>
+          <h2>See the workflow before creating an account.</h2>
+        </div>
+        <span className="soft-pill">demo data only</span>
+      </div>
+
+      <div className="demo-layout">
+        <article className="demo-account-card">
+          <span className="status-badge status-challenge">Challenge</span>
+          <h3>{demoMetrics.account}</h3>
+          <p>
+            A sample account showing how challenge costs and payouts roll into
+            one clear business result. Demo data is never saved.
+          </p>
+          <div className="demo-metric-grid">
+            <span>
+              Costs
+              <strong>{formatCzk(demoMetrics.costs)}</strong>
+            </span>
+            <span>
+              Payouts
+              <strong>{formatCzk(demoMetrics.payouts)}</strong>
+            </span>
+            <span>
+              Net
+              <strong>{formatCzk(demoMetrics.net)}</strong>
+            </span>
+            <span>
+              ROI
+              <strong>{demoMetrics.roi.toFixed(1)}%</strong>
+            </span>
+          </div>
+        </article>
+
+        <article className="demo-ranking-card">
+          <p className="eyebrow">ROI ranking preview</p>
+          <div className="rank-row">
+            <span>Lucid Trading - 100K Challenge</span>
+            <strong>+197.6%</strong>
+            <small>Best demo result</small>
+          </div>
+          <div className="rank-row warning">
+            <span>FTMO - 50K Challenge</span>
+            <strong>-22.5%</strong>
+            <small>Costs need review</small>
+          </div>
+          <p className="muted">
+            This preview shows the product idea only. Your real dashboard starts
+            empty and private after registration.
+          </p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function CreatorSnapshot({
+  costs,
+  payouts,
+  net,
+  bestAccount,
+}: {
+  costs: number;
+  payouts: number;
+  net: number;
+  bestAccount: string;
+}) {
+  const rule = creatorRules[Math.abs(Math.round(net)) % creatorRules.length];
+
+  return (
+    <section className="creator-snapshot" aria-label="Creator snapshot">
+      <div>
+        <p className="eyebrow">Creator Snapshot</p>
+        <h2>Simple numbers for honest trading content.</h2>
+        <p>
+          Use this block as a clean TikTok talking point: costs first, payouts
+          second, real ROI always.
+        </p>
+      </div>
+      <div className="snapshot-grid">
+        <span>
+          This month costs
+          <strong>{formatCzk(costs)}</strong>
+        </span>
+        <span>
+          Payouts
+          <strong>{formatCzk(payouts)}</strong>
+        </span>
+        <span>
+          Net result
+          <strong>{formatCzk(net)}</strong>
+        </span>
+        <span>
+          Best account
+          <strong>{bestAccount}</strong>
+        </span>
+      </div>
+      <blockquote className="snapshot-rule">{rule}</blockquote>
+    </section>
+  );
+}
+
+function DealsSection() {
+  return (
+    <section id="deals" className="deals-section" aria-label="Prop Firm Deals">
+      <div className="section-title">
+        <div>
+          <p className="eyebrow">Prop Firm Deals</p>
+          <h2>Trust-first deals I would personally track and compare.</h2>
+        </div>
+        <span className="soft-pill">paid link disclosure</span>
+      </div>
+
+      <p className="deal-disclosure">
+        Some links may be paid links. I may earn a commission at no extra cost
+        to you. I only list firms I would personally track and compare.
+      </p>
+
+      <div className="deals-grid">
+        {affiliateDeals.map((deal) => (
+          <article className={deal.featured ? "deal-card featured" : "deal-card"} key={deal.slug}>
+            <div className="deal-head">
+              <div>
+                <p className="eyebrow">{deal.featured ? "Featured" : "Tracked deal"}</p>
+                <h3>{deal.firmName}</h3>
+              </div>
+              <span className="deal-code">{deal.promoCode}</span>
+            </div>
+            <p>{deal.discountText}</p>
+            <div className="deal-tags">
+              {deal.accountTypes.map((type) => (
+                <span key={type}>{type}</span>
+              ))}
+            </div>
+            <dl className="deal-notes">
+              <div>
+                <dt>Payout note</dt>
+                <dd>{deal.payoutNote}</dd>
+              </div>
+              <div>
+                <dt>Risk note</dt>
+                <dd>{deal.riskNote}</dd>
+              </div>
+              <div>
+                <dt>Personal verdict</dt>
+                <dd>{deal.personalVerdict}</dd>
+              </div>
+            </dl>
+            <p className="deal-mini-disclosure">Paid link / affiliate relationship may apply.</p>
+            <a
+              className="primary-button full"
+              href={deal.affiliateUrl}
+              target="_blank"
+              rel="sponsored noopener noreferrer"
+            >
+              Use my code
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RecognitionPanel({ recognition }: { recognition: RecognitionResult }) {
   const kindLabel =
     recognition.kind === "payout"
       ? "Payout"
       : recognition.kind === "cost"
-        ? "Náklad"
-        : "Nejisté";
+        ? "Cost"
+        : "Unclear";
 
   return (
     <div className={`recognition-card recognition-${recognition.kind}`}>
       <div className="recognition-head">
         <div>
-          <p className="eyebrow">Rozpoznáno z dokladu</p>
+          <p className="eyebrow">Document preview</p>
           <h3>{kindLabel}</h3>
         </div>
-        <span className="confidence">{recognition.confidence}% jistota</span>
+        <span className="confidence">{recognition.confidence}% confidence</span>
       </div>
 
       <div className="recognition-grid">
-        <span>Firma</span>
-        <strong>{recognition.propFirm || "nenalezeno"}</strong>
-        <span>Částka</span>
+        <span>Firm</span>
+        <strong>{recognition.propFirm || "not found"}</strong>
+        <span>Amount</span>
         <strong>
           {recognition.amount
             ? formatMoney(Number(recognition.amount), recognition.currency)
-            : "nenalezeno"}
+            : "not found"}
         </strong>
-        <span>Datum</span>
-        <strong>{recognition.date || "nenalezeno"}</strong>
+        <span>Date</span>
+        <strong>{recognition.date || "not found"}</strong>
         <span>Program</span>
-        <strong>{recognition.program || "nenalezeno"}</strong>
+        <strong>{recognition.program || "not found"}</strong>
       </div>
 
       {recognition.signals.length ? (
@@ -2159,7 +2386,7 @@ function RecognitionPanel({ recognition }: { recognition: RecognitionResult }) {
       ) : null}
 
       <p className="muted">
-        Tohle je jen náhled. Pokud data sedí, přepiš je ručně do nákladu nebo payoutu.
+        This is only a preview. If the data looks right, enter it manually as a cost or payout.
       </p>
     </div>
   );
@@ -2197,7 +2424,7 @@ function RecordsTable({
     <div className="panel">
       <div className="section-title">
         <div>
-          <p className="eyebrow">Historie</p>
+          <p className="eyebrow">History</p>
           <h2>{title}</h2>
         </div>
       </div>
@@ -2216,7 +2443,7 @@ function RecordsTable({
                 <strong>{row.amount}</strong>
                 <span>{row.date}</span>
                 <button type="button" onClick={() => onRemove(row.id)}>
-                  Smazat
+                  Delete
                 </button>
               </div>
             </article>

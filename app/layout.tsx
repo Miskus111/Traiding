@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Trader Cost Hub",
   description:
-    "Moderní multi-user dashboard pro prop trading náklady, smart import faktur, payouty a výsledek podle účtů.",
+    "Track prop firm fees, payouts, resets and real ROI in one clean dashboard.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="cs">
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

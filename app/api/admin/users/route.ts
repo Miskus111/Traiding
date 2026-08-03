@@ -79,17 +79,17 @@ export async function PATCH(request: NextRequest) {
   const blocked = Boolean(body?.blocked);
 
   if (!userId) {
-    return NextResponse.json({ error: "Chybí ID uživatele." }, { status: 400 });
+    return NextResponse.json({ error: "User ID is missing." }, { status: 400 });
   }
   if (userId === auth.user.id && blocked) {
     return NextResponse.json(
-      { error: "Nemůžeš zablokovat vlastní admin účet." },
+      { error: "You cannot block your own admin account." },
       { status: 400 },
     );
   }
   if (userId === auth.user.id && role !== "admin") {
     return NextResponse.json(
-      { error: "Nemůžeš odebrat admin roli vlastnímu účtu." },
+      { error: "You cannot remove the admin role from your own account." },
       { status: 400 },
     );
   }

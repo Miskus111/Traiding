@@ -116,9 +116,9 @@ export function clearSessionCookie(response: NextResponse) {
 }
 
 export function unauthorized() {
-  return NextResponse.json({ error: "Nejdřív se přihlas." }, { status: 401 });
+  return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
 }
 
 export function forbidden() {
-  return NextResponse.json({ error: "Na tuhle akci nemáš oprávnění." }, { status: 403 });
+  return NextResponse.json({ error: "You do not have permission for this action." }, { status: 403 });
 }

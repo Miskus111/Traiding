@@ -89,7 +89,7 @@ const analysisSchema = {
 function fallbackAnalysis(document: DocumentRow): DocumentAnalysis {
   const lower = document.file_name.toLowerCase();
   const payout = /payout|withdraw|vyplat|profit/.test(lower);
-  const cost = /invoice|fee|challenge|reset|faktura|ucet|účet/.test(lower);
+  const cost = /invoice|fee|challenge|reset|account/.test(lower);
 
   return {
     recordType: payout ? "payout" : cost ? "cost" : "unknown",
@@ -106,7 +106,7 @@ function fallbackAnalysis(document: DocumentRow): DocumentAnalysis {
     split: 80,
     suggestedStatus: payout ? "payout received" : "",
     confidence: 15,
-    explanation: "Fallback podle názvu souboru. Přesnější data doplň ručně.",
+    explanation: "Fallback based on the file name. Enter precise data manually.",
   };
 }
 
@@ -163,18 +163,18 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   );
   const document = existing.rows[0];
   if (!document) {
-    return NextResponse.json({ error: "Dokument neexistuje nebo ti nepatří." }, { status: 404 });
+    return NextResponse.json({ error: "This document does not exist or does not belong to you." }, { status: 404 });
   }
 
   if (!process.env.OPENAI_API_KEY) {
     const fallback = fallbackAnalysis(document);
     await query(
       "UPDATE documents SET ai_status = 'skipped', extracted_json = $2, confidence = $3, error = $4 WHERE id = $1",
-      [document.id, JSON.stringify(fallback), fallback.confidence, "OPENAI_API_KEY není nastavený."],
+      [document.id, JSON.stringify(fallback), fallback.confidence, "OPENAI_API_KEY is not configured."],
     );
     return NextResponse.json({
       analysis: fallback,
-      warning: "OPENAI_API_KEY není nastavený. Použil jsem fallback bez AI.",
+      warning: "OPENAI_API_KEY is not configured. A non-AI fallback was used.",
     });
   }
 
@@ -245,12 +245,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         document.id,
         JSON.stringify(fallback),
         fallback.confidence,
-        error instanceof Error ? error.message.slice(0, 500) : "AI analýza selhala.",
+        error instanceof Error ? error.message.slice(0, 500) : "AI preview failed.",
       ],
     );
     return NextResponse.json({
       analysis: fallback,
-      warning: "AI analýza selhala. Použil jsem fallback podle názvu souboru.",
+      warning: "AI preview failed. A file-name fallback was used.",
     });
   }
 }

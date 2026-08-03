@@ -25,7 +25,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   );
 
   if (!document.rows[0]) {
-    return NextResponse.json({ error: "Dokument neexistuje nebo ti nepatří." }, { status: 404 });
+    return NextResponse.json({ error: "This document does not exist or does not belong to you." }, { status: 404 });
   }
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   if (!propFirm || amount <= 0) {
     return NextResponse.json(
-      { error: "Doplň prop firmu a částku větší než 0." },
+      { error: "Add a prop firm and an amount greater than 0." },
       { status: 400 },
     );
   }
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     );
     if (!account.rows[0]) {
       return NextResponse.json(
-        { error: "Vybraný účet neexistuje nebo ti nepatří." },
+        { error: "The selected account does not exist or does not belong to you." },
         { status: 400 },
       );
     }

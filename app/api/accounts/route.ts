@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 
   if (!propFirm) {
     return NextResponse.json(
-      { error: "Doplň prop firmu účtu." },
+      { error: "Add the account prop firm." },
       { status: 400 },
     );
   }
@@ -201,7 +201,7 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const accountId = requiredText(body?.id, 80);
   if (!accountId) {
-    return NextResponse.json({ error: "Chybí ID účtu." }, { status: 400 });
+    return NextResponse.json({ error: "Account ID is missing." }, { status: 400 });
   }
 
   const current = await query<{ id: string }>(
@@ -210,7 +210,7 @@ export async function PATCH(request: NextRequest) {
   );
   if (!current.rows[0]) {
     return NextResponse.json(
-      { error: "Účet neexistuje nebo ti nepatří." },
+      { error: "This account does not exist or does not belong to you." },
       { status: 404 },
     );
   }

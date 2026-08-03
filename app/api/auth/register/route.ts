@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Databáze není nastavená. Ve Vercelu přidej Neon/Postgres proměnnou a SESSION_SECRET.",
+          "The database is not configured. Add the Neon/Postgres variable and SESSION_SECRET in Vercel.",
       },
       { status: 503 },
     );
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   if (!email.includes("@") || password.length < 8) {
     return NextResponse.json(
-      { error: "Zadej platný e-mail a heslo alespoň na 8 znaků." },
+      { error: "Enter a valid e-mail and a password with at least 8 characters." },
       { status: 400 },
     );
   }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if ((error as { code?: string }).code === "23505") {
       return NextResponse.json(
-        { error: "Účet s tímto e-mailem už existuje." },
+        { error: "An account with this e-mail already exists." },
         { status: 409 },
       );
     }

@@ -27,7 +27,7 @@ function total(rows: MoneyRow[]) {
 
 function rank(rows: MoneyRow[], kind: "costs" | "payouts") {
   const grouped = rows.reduce<Record<string, number>>((acc, row) => {
-    const key = `${row.prop_firm || "Nezařazeno"} • ${row.program || "Účet neuveden"}`;
+    const key = `${row.prop_firm || "Unassigned"} - ${row.program || "Account missing"}`;
     acc[key] = (acc[key] ?? 0) + toCzk(row);
     return acc;
   }, {});
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   const month = new URL(request.url).searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
   if (!/^\d{4}-\d{2}$/.test(month)) {
-    return NextResponse.json({ error: "Měsíc musí být ve formátu YYYY-MM." }, { status: 400 });
+    return NextResponse.json({ error: "Month must use the YYYY-MM format." }, { status: 400 });
   }
 
   const [invoiceResult, payoutResult] = await Promise.all([
@@ -95,11 +95,11 @@ export async function GET(request: NextRequest) {
       roi,
       bestAccount: accountRanking[0] ?? null,
       worstAccount: [...accountRanking].sort((a, b) => a.net - b.net)[0] ?? null,
-      bestPropFirm: payoutRanking[0]?.name.split(" • ")[0] ?? null,
+      bestPropFirm: payoutRanking[0]?.name.split(" - ")[0] ?? null,
       recommendation:
         net >= 0
-          ? "Měsíc je v plusu. Zvaž navýšit pozornost účtům s nejlepším ROI."
-          : "Měsíc je ve ztrátě. Zkontroluj resety, failed účty a firmy s nulovým payoutem.",
+          ? "This month is positive. Consider focusing on accounts with the strongest tracked ROI."
+          : "This month is negative. Review resets, failed accounts and firms with no payout.",
       accounts: accountRanking,
     },
   });
